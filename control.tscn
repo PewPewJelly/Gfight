@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://dbvahnq0latuf"]
+
+[ext_resource type="Texture2D" uid="uid://b8bqp573skf4n" path="res://E.png" id="1_0fbet"]
+
+[node name="Control" type="Control" unique_id=2065442436]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+metadata/_edit_vertical_guides_ = [-4918.0]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=293583636]
+texture = ExtResource("1_0fbet")
