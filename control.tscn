@@ -19,3 +19,8 @@ texture = ExtResource("1_0fbet")
 
 [node name="Sprite2D2" type="Sprite2D" parent="Sprite2D2" unique_id=828358397]
 texture = ExtResource("1_0fbet")
+
+[node name="ㅇ" type="Control" parent="." unique_id=2047150399]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
