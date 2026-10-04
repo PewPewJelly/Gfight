@@ -30,3 +30,8 @@ texture = ExtResource("1_0fbet")
 position = Vector2(1158.25, 1923.25)
 scale = Vector2(0.40912825, 2.9453123)
 texture = ExtResource("1_0fbet")
+
+[node name="ㅇ" type="Control" parent="." unique_id=2047150399]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
