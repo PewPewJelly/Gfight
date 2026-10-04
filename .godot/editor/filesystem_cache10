@@ -1,5 +1,13 @@
 78098b89c88a74ebe8c20117b8754620
-::res://::1790682981
-control.tscn::PackedScene::7272816036780955593::1790682867::0::1::::<><><>0<>0<><>::uid://b8bqp573skf4n::::res://E.png
+::res://::1791119900
+control.tscn::PackedScene::7272816036780955593::1790683281::0::1::::<><><>0<>0<><>::uid://b8bqp573skf4n::::res://E.png
 E.png::CompressedTexture2D::4705716786725957739::1790682867::1790682867::1::::<><><>0<>0<>f6a6e2bae626e968aa0830e4cbc53ba1<>res://.godot/imported/E.png-5b98a5bbbfa3fa534117839a10ed27fd.ctex::
+EBFD6E3D-2CF1-4E2F-A75D-42E29A1AE996.png::CompressedTexture2D::7005357999167736948::1791119900::1791119900::1::::<><><>0<>0<>23ff84b62bc81f2eecd7b88c1d09628b<>res://.godot/imported/EBFD6E3D-2CF1-4E2F-A75D-42E29A1AE996.png-72a9ad821df981ab0b453ce2c504d19e.ctex::
 icon.svg::CompressedTexture2D::5962947542257742061::1790682867::1790682867::1::::<><><>0<>0<>85a312c273711b12186f1701db45a4be<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
+::res://GDD/::1791119883
+attack-handoff.md::TextFile::-1::1790687444::0::1::::<><><>0<>0<><>::
+basicRule.md::TextFile::-1::1790687405::0::1::::<><><>0<>0<><>::
+defeatNrule.md::TextFile::-1::1790687405::0::1::::<><><>0<>0<><>::
+match-menu-multiplayer-handoff.md::TextFile::-1::1790687444::0::1::::<><><>0<>0<><>::
+movement-jump-handoff.md::TextFile::-1::1790687478::0::1::::<><><>0<>0<><>::
+platform-ground-collision-handoff.md::TextFile::-1::1790687478::0::1::::<><><>0<>0<><>::
