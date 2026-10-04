@@ -1,0 +1,208 @@
+[gd_scene load_steps=7 format=3 uid="uid://cmeoqp8w2e8j2"]
+
+[ext_resource type="Script" path="res://battlefield.gd" id="1_battle"]
+[ext_resource type="PackedScene" path="res://player.tscn" id="2_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_main"]
+size = Vector2(750, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_plat_side"]
+size = Vector2(180, 14)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_plat_top"]
+size = Vector2(160, 14)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.12, 0.14, 0.18, 0.85)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[node name="Battlefield" type="Node2D"]
+script = ExtResource("1_battle")
+
+[node name="Background" type="ColorRect" parent="."]
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0.08, 0.1, 0.15, 1)
+
+[node name="StageVisual" type="Node2D" parent="."]
+
+[node name="Stage" type="Node2D" parent="."]
+
+[node name="MainPlatform" type="StaticBody2D" parent="Stage"]
+position = Vector2(640, 560)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Stage/MainPlatform"]
+shape = SubResource("RectangleShape2D_main")
+
+[node name="ColorRect" type="ColorRect" parent="Stage/MainPlatform"]
+offset_left = -375.0
+offset_top = -20.0
+offset_right = 375.0
+offset_bottom = 20.0
+color = Color(0.25, 0.3, 0.4, 1)
+
+[node name="LeftPlatform" type="StaticBody2D" parent="Stage"]
+position = Vector2(450, 420)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Stage/LeftPlatform"]
+shape = SubResource("RectangleShape2D_plat_side")
+one_way_collision = true
+
+[node name="ColorRect" type="ColorRect" parent="Stage/LeftPlatform"]
+offset_left = -90.0
+offset_top = -7.0
+offset_right = 90.0
+offset_bottom = 7.0
+color = Color(0.4, 0.55, 0.7, 1)
+
+[node name="RightPlatform" type="StaticBody2D" parent="Stage"]
+position = Vector2(830, 420)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Stage/RightPlatform"]
+shape = SubResource("RectangleShape2D_plat_side")
+one_way_collision = true
+
+[node name="ColorRect" type="ColorRect" parent="Stage/RightPlatform"]
+offset_left = -90.0
+offset_top = -7.0
+offset_right = 90.0
+offset_bottom = 7.0
+color = Color(0.4, 0.55, 0.7, 1)
+
+[node name="TopPlatform" type="StaticBody2D" parent="Stage"]
+position = Vector2(640, 290)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Stage/TopPlatform"]
+shape = SubResource("RectangleShape2D_plat_top")
+one_way_collision = true
+
+[node name="ColorRect" type="ColorRect" parent="Stage/TopPlatform"]
+offset_left = -80.0
+offset_top = -7.0
+offset_right = 80.0
+offset_bottom = 7.0
+color = Color(0.4, 0.55, 0.7, 1)
+
+[node name="Players" type="Node2D" parent="."]
+
+[node name="Player1" parent="Players" instance=ExtResource("2_player")]
+position = Vector2(480, 500)
+player_id = 1
+
+[node name="Player2" parent="Players" instance=ExtResource("2_player")]
+position = Vector2(800, 500)
+player_id = 2
+is_dummy = true
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="P1Card" type="Panel" parent="UI"]
+offset_left = 300.0
+offset_top = 590.0
+offset_right = 530.0
+offset_bottom = 700.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="NameLabel" type="Label" parent="UI/P1Card"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 10.0
+offset_right = 150.0
+offset_bottom = 33.0
+theme_override_colors/font_color = Color(0.4, 0.75, 1, 1)
+text = "1P 플레이어 (나)"
+
+[node name="PercentLabel" type="Label" parent="UI/P1Card"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 32.0
+offset_right = 215.0
+offset_bottom = 85.0
+theme_override_font_sizes/font_size = 36
+text = "0%"
+
+[node name="StocksLabel" type="Label" parent="UI/P1Card"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 80.0
+offset_right = 180.0
+offset_bottom = 103.0
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+text = "스톡: ● ● ●"
+
+[node name="P2Card" type="Panel" parent="UI"]
+offset_left = 750.0
+offset_top = 590.0
+offset_right = 980.0
+offset_bottom = 700.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="NameLabel" type="Label" parent="UI/P2Card"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 10.0
+offset_right = 150.0
+offset_bottom = 33.0
+theme_override_colors/font_color = Color(1, 0.45, 0.45, 1)
+text = "2P 플레이어 (상대)"
+
+[node name="PercentLabel" type="Label" parent="UI/P2Card"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 32.0
+offset_right = 215.0
+offset_bottom = 85.0
+theme_override_font_sizes/font_size = 36
+text = "0%"
+
+[node name="StocksLabel" type="Label" parent="UI/P2Card"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 80.0
+offset_right = 180.0
+offset_bottom = 103.0
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+text = "스톡: ● ● ●"
+
+[node name="GuidePanel" type="Panel" parent="UI"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 1260.0
+offset_bottom = 75.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="GuideLabel" type="Label" parent="UI/GuidePanel"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 6.0
+offset_right = 1230.0
+offset_bottom = 29.0
+text = "[조작법] A/D: 좌우이동 | W: 2단점프 | S: 플랫폼 아래로 빠지기 | J: 공격 (중립/앞/위/아래 틸트) | R: 게임 리셋"
+
+[node name="ModeLabel" type="Label" parent="UI"]
+offset_left = 35.0
+offset_top = 45.0
+offset_right = 700.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.7, 1, 0.7, 1)
+text = "[2P: 샌드백 모드] (F1 키로 2인 플레이 전환: 방향키 + L 키)"
+
+[node name="ActionLogLabel" type="Label" parent="UI"]
+offset_left = 800.0
+offset_top = 45.0
+offset_right = 1250.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(1, 0.9, 0.4, 1)
+text = "게임 준비 완료!"
+horizontal_alignment = 2
