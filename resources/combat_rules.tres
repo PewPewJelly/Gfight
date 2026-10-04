@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CombatRules" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat_rules.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+ring_out_margin = 160.0
+respawn_delay = 2.0
+knockback_growth = 1.0
+percent_cap = 0.0
