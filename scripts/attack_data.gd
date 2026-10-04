@@ -6,3 +6,5 @@ extends Resource
 @export var base_launch_speed: float = 420.0
 @export var hitstun_seconds: float = 0.35
 @export var reach: float = 80.0
+@export var width: float = 70.0
+@export var launch_direction: Vector2 = Vector2(1, -0.35)

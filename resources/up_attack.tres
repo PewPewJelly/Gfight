@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/attack_data.gd" id="1"]
+[resource]
+script = ExtResource("1")
+damage = 8.0
+percent_increase = 10.0
+base_launch_speed = 450.0
+hitstun_seconds = 0.4
+reach = 100.0
+width = 60.0
+launch_direction = Vector2(0, -1)

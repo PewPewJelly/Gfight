@@ -1,6 +1,13 @@
+class_name FightArena
 extends Node2D
 
 signal match_finished(winner_id: int)
+signal snapshot_ready(state: Dictionary)
+var participant_ids: Array[int] = [1, 2]
+var standalone: bool = true
+var authoritative: bool = true
+var input_provider: Callable
+var frame: int = 0
 @export var rules: CombatRules = preload("res://resources/combat_rules.tres")
 @export var attack: AttackData = preload("res://resources/basic_attack.tres")
 var fighters: Array[Fighter] = []
@@ -13,20 +20,26 @@ var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	rng.randomize()
-	for surface in platforms:
+	for index in range(platforms.size()):
+		var surface := platforms[index]
 		var body := StaticBody2D.new()
 		body.position = surface.get_center()
 		var collider := CollisionShape2D.new()
 		var shape := RectangleShape2D.new()
 		shape.size = surface.size
 		collider.shape = shape
+		collider.one_way_collision = index > 0
+		collider.one_way_collision_margin = 4.0
+		body.set_meta("drop_through", index > 0)
 		body.add_child(collider)
 		add_child(body)
-	for id in range(2):
+	for id in range(participant_ids.size()):
 		var fighter := Fighter.new()
 		fighter.rules = rules
-		fighter.player_id = id + 1
-		fighter.tint = Color("58c7ff") if id == 0 else Color("ffb75b")
+		fighter.player_id = participant_ids[id]
+		fighter.player_slot = id + 1
+		fighter.self_tick = false
+		fighter.tint = [Color("58c7ff"), Color("ffb75b"), Color("d79dff"), Color("9ee392")][id % 4]
 		if id == 1:
 			fighter.controls = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_K]
 		add_child(fighter)
@@ -40,18 +53,27 @@ func _ready() -> void:
 	restart()
 
 func restart() -> void:
+	if not authoritative or fighters.size() < 2:
+		return
 	ended = false
 	result = ""
 	for index in range(fighters.size()):
 		fighters[index].input_enabled = true
-		fighters[index].reset_round(Vector2(370 if index == 0 else 890, 360 - Fighter.HALF_SIZE.y))
+		var start_x: float = [320.0, 830.0, 460.0, 970.0][index % 4]
+		fighters[index].reset_round(Vector2(start_x, 360 - Fighter.HALF_SIZE.y))
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_R:
+	if standalone and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_R:
 		restart()
 
 func _physics_process(delta: float) -> void:
+	if not authoritative:
+		_update_hud()
+		return
 	if not ended:
+		for fighter in fighters:
+			var mask: int = input_provider.call(fighter.player_id) if input_provider.is_valid() else Fighter.read_keyboard(fighter.controls, KEY_S if fighter == fighters[0] else KEY_DOWN)
+			fighter.simulate(delta, mask)
 		# Resolve all exits before checking victory, including simultaneous final exits.
 		for fighter in fighters:
 			if fighter.life_state == Fighter.LifeState.ACTIVE and rules.is_outside(fighter.position, screen_bounds):
@@ -67,6 +89,9 @@ func _physics_process(delta: float) -> void:
 							fighter.respawn(location)
 			_resolve_attacks()
 	_update_hud()
+	frame += 1
+	if frame % 3 == 0:
+		snapshot_ready.emit(snapshot())
 
 func _resolve_attacks() -> void:
 	# Snapshot first: simultaneous attacks may both land; per target hits are ordered by player ID.
@@ -75,15 +100,17 @@ func _resolve_attacks() -> void:
 		if not source.attack_requested or source.life_state != Fighter.LifeState.ACTIVE:
 			continue
 		source.attack_requested = false
-		var direction := Vector2(source.facing, -0.35).normalized()
+		var direction := source.attack_direction()
+		var box := source.attack_box()
+		box.position += source.position
+		var data: AttackData = source.attacks[source.attack_kind]
 		for target in fighters:
 			if target == source or target.life_state != Fighter.LifeState.ACTIVE:
 				continue
-			var offset := target.position - source.position
-			if offset.x * source.facing >= 0.0 and absf(offset.x) <= attack.reach and absf(offset.y) <= 52.0:
-				hits.append({"target": target, "direction": direction})
+			if box.intersects(Rect2(target.position - Fighter.HALF_SIZE, Fighter.HALF_SIZE * 2.0)):
+				hits.append({"target": target, "direction": direction, "attack": data})
 	for hit in hits:
-		hit.target.receive_hit(attack, hit.direction)
+		hit.target.receive_hit(hit.attack, hit.direction)
 
 func _resolve_result() -> void:
 	var survivors: Array[Fighter] = []
@@ -94,7 +121,7 @@ func _resolve_result() -> void:
 		return
 	ended = true
 	var winner_id := survivors[0].player_id if survivors.size() == 1 else 0
-	result = "P%d WINS — R: Restart" % winner_id if winner_id > 0 else "DRAW — R: Restart"
+	result = "P%d WINS" % survivors[0].player_slot if winner_id > 0 else "DRAW"
 	for fighter in fighters:
 		fighter.input_enabled = false
 		fighter.attack_requested = false
@@ -119,7 +146,10 @@ func _spawn_location(fighter: Fighter) -> Vector2:
 	return Vector2.INF if candidates.is_empty() else candidates[rng.randi_range(0, candidates.size() - 1)]
 
 func _update_hud() -> void:
-	var lines := PackedStringArray(["P1: A/D move · W jump · J attack    |    P2: ←/→ move · ↑ jump · K attack    |    R restart"])
+	var instructions := "A/D move · W jump · S drop · J attack (W/J up, S/J down)"
+	if standalone:
+		instructions += " | P2: Arrows + K | R restart"
+	var lines := PackedStringArray([instructions])
 	for fighter in fighters:
 		var status := ""
 		if fighter.life_state == Fighter.LifeState.WAITING:
@@ -128,10 +158,49 @@ func _update_hud() -> void:
 			status = "Eliminated"
 		elif fighter.invulnerability_left > 0.0:
 			status = "Invulnerable %.1fs" % fighter.invulnerability_left
-		lines.append("P%d    Stocks %d    %.0f%%    %s" % [fighter.player_id, fighter.stocks, fighter.percent, status])
+		lines.append("P%d    Stocks %d    %.0f%%    %s" % [fighter.player_slot, fighter.stocks, fighter.percent, status])
 	if ended:
 		lines.append(result)
 	hud.text = "\n".join(lines)
+
+func snapshot() -> Dictionary:
+	var players: Array[Dictionary] = []
+	for fighter in fighters:
+		players.append({"id": fighter.player_id, "position": fighter.position, "velocity": fighter.velocity,
+			"stocks": fighter.stocks, "percent": fighter.percent, "damage": fighter.damage_received,
+			"life": fighter.life_state, "invulnerability": fighter.invulnerability_left,
+			"respawn": fighter.respawn_left, "hitstun": fighter.hitstun_left,
+			"cooldown": fighter.attack_cooldown, "jumps": fighter.jumps_left,
+			"facing": fighter.facing, "kind": fighter.attack_kind, "visual": fighter.attack_visual})
+	return {"players": players, "ended": ended, "result": result, "frame": frame}
+
+func apply_snapshot(state: Dictionary) -> void:
+	if int(state.get("frame", -1)) < frame:
+		return
+	frame = state.frame
+	ended = state.ended
+	result = state.result
+	for data in state.players:
+		for fighter in fighters:
+			if fighter.player_id != data.id:
+				continue
+			fighter.position = data.position
+			fighter.velocity = data.velocity
+			fighter.stocks = data.stocks
+			fighter.percent = data.percent
+			fighter.damage_received = data.damage
+			fighter.life_state = data.life
+			fighter.invulnerability_left = data.invulnerability
+			fighter.respawn_left = data.respawn
+			fighter.hitstun_left = data.hitstun
+			fighter.attack_cooldown = data.cooldown
+			fighter.jumps_left = data.jumps
+			fighter.facing = data.facing
+			fighter.attack_kind = data.kind
+			fighter.attack_visual = data.visual
+			fighter.visible = fighter.life_state == Fighter.LifeState.ACTIVE
+			fighter.queue_redraw()
+	_update_hud()
 
 func _draw() -> void:
 	draw_rect(screen_bounds, Color("101927"))
