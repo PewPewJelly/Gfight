@@ -1,11 +1,6 @@
-[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://5dn3wii5ja7s"]
 
-[ext_resource type="Script" path="res://scripts/attack_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://csbefiofeqlia" path="res://scripts/attack_data.gd" id="1"]
 
 [resource]
 script = ExtResource("1")
-damage = 10.0
-percent_increase = 12.0
-base_launch_speed = 420.0
-hitstun_seconds = 0.35
-reach = 80.0

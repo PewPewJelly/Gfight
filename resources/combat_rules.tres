@@ -1,12 +1,6 @@
-[gd_resource type="Resource" script_class="CombatRules" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CombatRules" format=3 uid="uid://udlvwnr10lpf"]
 
-[ext_resource type="Script" path="res://scripts/combat_rules.gd" id="1"]
+[ext_resource type="Script" uid="uid://bf4jbql564rt" path="res://scripts/combat_rules.gd" id="1"]
 
 [resource]
 script = ExtResource("1")
-ring_out_margin = 160.0
-blast_safety_margin = 40.0
-respawn_delay = 3.0
-start_countdown = 3.0
-knockback_growth = 1.0
-percent_cap = 0.0
