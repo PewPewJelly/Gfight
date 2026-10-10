@@ -99,6 +99,24 @@ func run() -> void:
 		other.simulate(1.0 / 60.0, 1)
 		await frames(1)
 	check(absf(player.position.x - other.position.x) >= Fighter.HALF_SIZE.x * 2.0 - 0.1, "Opposing movement does not overlap fighters")
+	# Landing on another fighter slides off sideways; nobody can stand on a head.
+	for offset in [6.0, 0.0]:
+		other.reset_round(Vector2(640, 514))
+		player.reset_round(Vector2(640 + offset, 400))
+		await frames(2)
+		var touched_head := false
+		for index in range(90):
+			player.simulate(1.0 / 60.0, 0)
+			other.simulate(1.0 / 60.0, 0)
+			if absf(player.position.x - other.position.x) < Fighter.HALF_SIZE.x * 2.0 and player.position.y < other.position.y - Fighter.HALF_SIZE.y:
+				touched_head = true
+			await frames(1)
+		check(touched_head, "Stomp test actually lands on the other head (offset %.0f)" % offset)
+		check(absf(player.position.x - other.position.x) >= Fighter.HALF_SIZE.x * 2.0 - 0.5, "Stomping fighter slid off to the side (offset %.0f)" % offset)
+		check(player.grounded() and absf(player.position.y - other.position.y) < 1.0, "Stomping fighter ends on the floor, not on the head (offset %.0f: %s vs %s)" % [offset, player.position, other.position])
+	player.reset_round(Vector2(600, 514))
+	other.reset_round(Vector2(640, 514))
+	await frames(2)
 	# Inactive fighters must not leave invisible colliders behind.
 	var vacated_x := other.position.x
 	other.ring_out()
@@ -108,10 +126,10 @@ func run() -> void:
 	other.simulate(1.0 / 60.0, 4 | 16)
 	check(other.jumps_left == 2 and not other.attack_requested, "Held remote keys do not become fresh presses on respawn")
 	other.ring_out()
-	for index in range(40):
+	for index in range(80):
 		player.simulate(1.0 / 60.0, 2)
 		await frames(1)
-	check(player.position.x > vacated_x + Fighter.HALF_SIZE.x, "Movement passes vacated position")
+	check(player.position.x > vacated_x + Fighter.HALF_SIZE.x, "Movement passes vacated position (%s vs %.0f)" % [player.position, vacated_x])
 	# Server snapshots reproduce all shared combat state on a rendering-only arena.
 	var replica := preload("res://arena.tscn").instantiate() as FightArena
 	replica.authoritative = false

@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 ring_out_margin = 160.0
+blast_safety_margin = 40.0
 respawn_delay = 3.0
 start_countdown = 3.0
 knockback_growth = 1.0

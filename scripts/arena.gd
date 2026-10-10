@@ -10,9 +10,12 @@ var input_provider: Callable
 var frame: int = 0
 @export var rules: CombatRules = preload("res://resources/combat_rules.tres")
 @export var attack: AttackData = preload("res://resources/basic_attack.tres")
+@export var movement: MovementSettings = preload("res://resources/movement_settings.tres")
 var fighters: Array[Fighter] = []
 var platforms: Array[Rect2] = [Rect2(180, 540, 920, 30), Rect2(260, 360, 260, 20), Rect2(760, 360, 260, 20)]
 var screen_bounds := Rect2(0, 0, 1280, 720)
+## Crossing any edge of this rectangle is an instant ring-out (see CombatRules.blast_zone).
+var blast_zone: Rect2
 var result: String = ""
 var ended: bool = false
 var winner_id: int = 0
@@ -25,6 +28,12 @@ var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	rng.randomize()
+	var stage := platforms[0]
+	var lowest_top := platforms[0].position.y
+	for surface in platforms:
+		stage = stage.merge(surface)
+		lowest_top = maxf(lowest_top, surface.position.y)
+	blast_zone = rules.blast_zone(stage, lowest_top, screen_bounds, movement)
 	for index in range(platforms.size()):
 		var surface := platforms[index]
 		var body := StaticBody2D.new()
@@ -103,7 +112,7 @@ func _physics_process(delta: float) -> void:
 			fighter.simulate(delta, mask)
 		# Resolve all exits before checking victory, including simultaneous final exits.
 		for fighter in fighters:
-			if fighter.life_state == Fighter.LifeState.ACTIVE and rules.is_outside(fighter.position, screen_bounds):
+			if fighter.life_state == Fighter.LifeState.ACTIVE and rules.is_outside(fighter.position, blast_zone):
 				fighter.ring_out()
 		_resolve_result()
 		if not ended:
@@ -287,6 +296,12 @@ func apply_snapshot(state: Dictionary) -> void:
 
 func _draw() -> void:
 	draw_rect(screen_bounds, Color("101927"))
+	# Blast lines (only visible on screens wider/taller than the 1280×720 stage view).
+	var line_color := Color(UiStyle.ERROR, 0.35)
+	var zone := blast_zone
+	draw_dashed_line(zone.position, Vector2(zone.position.x, zone.end.y), line_color, 2.0, 12.0)
+	draw_dashed_line(Vector2(zone.end.x, zone.position.y), zone.end, line_color, 2.0, 12.0)
+	draw_dashed_line(Vector2(zone.position.x, zone.end.y), zone.end, line_color, 2.0, 12.0)
 	for surface in platforms:
 		draw_rect(surface, Color("637890"))
 		draw_line(surface.position, Vector2(surface.end.x, surface.position.y), Color("c5d6e7"), 3.0)

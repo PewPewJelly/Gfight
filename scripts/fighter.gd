@@ -213,7 +213,22 @@ func simulate(delta: float, mask: int) -> void:
 	down_was_down = down_down
 	velocity.y += movement.gravity * delta
 	move_and_slide()
+	_slide_off_heads()
 	queue_redraw()
+
+## Landing on another fighter never counts as standing: push sideways until clear.
+func _slide_off_heads() -> void:
+	for index in range(get_slide_collision_count()):
+		var contact := get_slide_collision(index)
+		var below := contact.get_collider() as Fighter
+		if below == null or contact.get_normal().y > -0.5:
+			continue
+		var side := signf(position.x - below.position.x)
+		if is_zero_approx(side):
+			# Dead center: split by player id so host and replays agree.
+			side = 1.0 if player_id > below.player_id else -1.0
+		velocity.x = side * movement.stack_slide_speed
+		return
 
 func attack_box() -> Rect2:
 	var data: AttackData = attacks[attack_kind]

@@ -91,7 +91,7 @@ func host_tick() -> bool:
 			session.submit_local_input(0)
 		if age() > 600:
 			check(client.percent == 12.0 and host.percent == 0.0, "Server-authoritative attack and victim-only increment")
-			client.position = Vector2(1441, 0)
+			client.position = Vector2(2000, 0)
 			advance(3)
 	elif stage == 3 and age() > 250:
 		check(client.stocks == 2 and client.percent == 0.0, "Network ring-out subtracts exactly one and resets percent")
@@ -103,7 +103,7 @@ func host_tick() -> bool:
 		advance(5)
 	elif stage == 5 and age() > 500:
 		client.stocks = 1
-		client.position = Vector2(1441, 0)
+		client.position = Vector2(2000, 0)
 		advance(6)
 	elif stage == 6 and age() > 700:
 		check(session.phase == "result" and arena.result == "P1 WINS", "Host receives final winner")
