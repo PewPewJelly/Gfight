@@ -3,7 +3,9 @@ extends Resource
 
 ## Prototype tuning only; values marked ?? in the handoff remain design decisions.
 @export var ring_out_margin: float = 160.0
-@export var respawn_delay: float = 2.0
+@export var respawn_delay: float = 3.0
+## [제안] Shared start signal; all input is ignored until it reaches zero.
+@export var start_countdown: float = 3.0
 @export var knockback_growth: float = 1.0
 ## Zero means uncapped.
 @export var percent_cap: float = 0.0

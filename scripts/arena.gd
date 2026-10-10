@@ -15,6 +15,11 @@ var platforms: Array[Rect2] = [Rect2(180, 540, 920, 30), Rect2(260, 360, 260, 20
 var screen_bounds := Rect2(0, 0, 1280, 720)
 var result: String = ""
 var ended: bool = false
+var winner_id: int = 0
+## Seconds left in the shared start countdown; simulation waits until it reaches zero.
+var countdown_left: float = 0.0
+## Peer id whose fighter is drawn with the ▼나 marker (0 = none, e.g. local 2-player).
+var local_player_id: int = 0
 var hud: Label
 var rng := RandomNumberGenerator.new()
 
@@ -39,7 +44,9 @@ func _ready() -> void:
 		fighter.player_id = participant_ids[id]
 		fighter.player_slot = id + 1
 		fighter.self_tick = false
-		fighter.tint = [Color("58c7ff"), Color("ffb75b"), Color("d79dff"), Color("9ee392")][id % 4]
+		fighter.tint = UiStyle.slot_color(id + 1)
+		fighter.is_local = fighter.player_id == local_player_id
+		fighter.stock_lost.connect(_on_stock_lost)
 		if id == 1:
 			fighter.controls = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_K]
 		add_child(fighter)
@@ -50,6 +57,7 @@ func _ready() -> void:
 	hud.position = Vector2(24, 18)
 	hud.add_theme_font_size_override("font_size", 22)
 	layer.add_child(hud)
+	hud.visible = standalone
 	restart()
 
 func restart() -> void:
@@ -57,10 +65,20 @@ func restart() -> void:
 		return
 	ended = false
 	result = ""
-	for index in range(fighters.size()):
-		fighters[index].input_enabled = true
-		var start_x: float = [320.0, 830.0, 460.0, 970.0][index % 4]
-		fighters[index].reset_round(Vector2(start_x, 360 - Fighter.HALF_SIZE.y))
+	winner_id = 0
+	countdown_left = 0.0 if standalone else maxf(0.0, rules.start_countdown)
+	# Park everyone off-stage so each random start only avoids fighters already placed.
+	for fighter in fighters:
+		fighter.position = Vector2(-10000, -10000)
+	for fighter in fighters:
+		fighter.input_enabled = true
+		var location := _spawn_location(fighter)
+		if location == Vector2.INF:
+			push_error("No free start position for P%d" % fighter.player_slot)
+			location = Vector2(platforms[0].get_center().x, platforms[0].position.y - Fighter.HALF_SIZE.y)
+		fighter.reset_round(location)
+		fighter.tag_emphasis = countdown_left > 0.0
+		fighter.queue_redraw()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if standalone and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_R:
@@ -70,7 +88,11 @@ func _physics_process(delta: float) -> void:
 	if not authoritative:
 		_update_hud()
 		return
-	if not ended:
+	if countdown_left > 0.0:
+		countdown_left = maxf(0.0, countdown_left - delta)
+		if is_zero_approx(countdown_left):
+			_set_tag_emphasis(false)
+	elif not ended:
 		for fighter in fighters:
 			var mask: int = input_provider.call(fighter.player_id) if input_provider.is_valid() else Fighter.read_keyboard(fighter.controls, KEY_S if fighter == fighters[0] else KEY_DOWN)
 			fighter.simulate(delta, mask)
@@ -108,9 +130,51 @@ func _resolve_attacks() -> void:
 			if target == source or target.life_state != Fighter.LifeState.ACTIVE:
 				continue
 			if box.intersects(Rect2(target.position - Fighter.HALF_SIZE, Fighter.HALF_SIZE * 2.0)):
-				hits.append({"target": target, "direction": direction, "attack": data})
+				hits.append({"source": source, "target": target, "direction": direction, "attack": data})
 	for hit in hits:
-		hit.target.receive_hit(hit.attack, hit.direction)
+		var target: Fighter = hit.target
+		var before := target.percent
+		if target.receive_hit(hit.attack, hit.direction):
+			var source: Fighter = hit.source
+			source.dealt_percent += target.percent - before
+			target.last_attacker_id = source.player_id
+
+## Credits the kill to the last attacker and records elimination order for ranks.
+func _on_stock_lost(fighter: Fighter) -> void:
+	if not authoritative:
+		return
+	if fighter.last_attacker_id != 0 and fighter.last_attacker_id != fighter.player_id:
+		for other in fighters:
+			if other.player_id == fighter.last_attacker_id:
+				other.kills += 1
+	fighter.last_attacker_id = 0
+	if fighter.life_state == Fighter.LifeState.ELIMINATED:
+		fighter.eliminated_frame = frame
+
+func _set_tag_emphasis(enabled: bool) -> void:
+	for fighter in fighters:
+		fighter.tag_emphasis = enabled
+		fighter.queue_redraw()
+
+## Ranks for the result screen: winner first, then later eliminations rank higher.
+## Fighters eliminated on the same frame share a rank (a final simultaneous exit is a shared 1st).
+static func compute_ranks(entries: Array[Dictionary]) -> Dictionary:
+	var order := entries.duplicate()
+	order.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return _rank_key(a) > _rank_key(b))
+	var ranks := {}
+	var previous_key := -2
+	var current_rank := 0
+	for index in range(order.size()):
+		var key := _rank_key(order[index])
+		if key != previous_key:
+			current_rank = index + 1
+			previous_key = key
+		ranks[order[index].id] = current_rank
+	return ranks
+
+static func _rank_key(entry: Dictionary) -> int:
+	var out_frame: int = entry.out
+	return 1 << 30 if out_frame < 0 else out_frame
 
 func _resolve_result() -> void:
 	var survivors: Array[Fighter] = []
@@ -120,7 +184,8 @@ func _resolve_result() -> void:
 	if survivors.size() > 1:
 		return
 	ended = true
-	var winner_id := survivors[0].player_id if survivors.size() == 1 else 0
+	winner_id = survivors[0].player_id if survivors.size() == 1 else 0
+	_set_tag_emphasis(false)
 	result = "P%d WINS" % survivors[0].player_slot if winner_id > 0 else "DRAW"
 	for fighter in fighters:
 		fighter.input_enabled = false
@@ -146,6 +211,8 @@ func _spawn_location(fighter: Fighter) -> Vector2:
 	return Vector2.INF if candidates.is_empty() else candidates[rng.randi_range(0, candidates.size() - 1)]
 
 func _update_hud() -> void:
+	if not standalone:
+		return
 	var instructions := "A/D move · W jump · S drop · J attack (W/J up, S/J down)"
 	if standalone:
 		instructions += " | P2: Arrows + K | R restart"
@@ -171,8 +238,10 @@ func snapshot() -> Dictionary:
 			"life": fighter.life_state, "invulnerability": fighter.invulnerability_left,
 			"respawn": fighter.respawn_left, "hitstun": fighter.hitstun_left,
 			"cooldown": fighter.attack_cooldown, "jumps": fighter.jumps_left,
-			"facing": fighter.facing, "kind": fighter.attack_kind, "visual": fighter.attack_visual})
-	return {"players": players, "ended": ended, "result": result, "frame": frame}
+			"facing": fighter.facing, "kind": fighter.attack_kind, "visual": fighter.attack_visual,
+			"kills": fighter.kills, "dealt": fighter.dealt_percent, "out": fighter.eliminated_frame})
+	return {"players": players, "ended": ended, "result": result, "winner": winner_id,
+		"countdown": countdown_left, "frame": frame}
 
 func apply_snapshot(state: Dictionary) -> void:
 	if int(state.get("frame", -1)) < frame:
@@ -180,6 +249,9 @@ func apply_snapshot(state: Dictionary) -> void:
 	frame = state.frame
 	ended = state.ended
 	result = state.result
+	winner_id = state.winner
+	var emphasis_changed := (countdown_left > 0.0) != (float(state.countdown) > 0.0)
+	countdown_left = state.countdown
 	for data in state.players:
 		for fighter in fighters:
 			if fighter.player_id != data.id:
@@ -198,8 +270,14 @@ func apply_snapshot(state: Dictionary) -> void:
 			fighter.facing = data.facing
 			fighter.attack_kind = data.kind
 			fighter.attack_visual = data.visual
+			fighter.kills = data.kills
+			fighter.dealt_percent = data.dealt
+			fighter.eliminated_frame = data.out
+			fighter.tag_emphasis = countdown_left > 0.0
 			fighter.visible = fighter.life_state == Fighter.LifeState.ACTIVE
 			fighter.queue_redraw()
+	if emphasis_changed:
+		_set_tag_emphasis(countdown_left > 0.0)
 	_update_hud()
 
 func _draw() -> void:

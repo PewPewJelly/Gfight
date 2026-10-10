@@ -18,6 +18,7 @@ func frames(count: int) -> void:
 func run() -> void:
 	var session = root.get_node("Session")
 	var main = load("res://main.tscn").instantiate()
+	main.result_delay = 0.0
 	root.add_child(main)
 	check(main.menu.visible and not main.lobby.visible, "Game opens on menu")
 	session.roster = {1: "One"}
@@ -122,6 +123,7 @@ func run() -> void:
 	replica.queue_free()
 	other.stocks = 0
 	arena._resolve_result()
+	await frames(2)
 	check(session.phase == "result" and main.result_panel.visible, "Victory opens result panel")
 	session.return_to_lobby()
 	check(session.phase == "lobby" and main.lobby.visible, "Host can return to lobby")

@@ -11,7 +11,7 @@ $originalAppData = $env:APPDATA
 try {
     $env:APPDATA = Join-Path $projectRoot '.godot/test_userdata'
     New-Item -ItemType Directory -Force $env:APPDATA | Out-Null
-    foreach ($testScript in @('combat_test.gd', 'gameplay_test.gd')) {
+    foreach ($testScript in @('combat_test.gd', 'gameplay_test.gd', 'ui_flow_test.gd')) {
         $testOutput = & $GodotPath --headless --path $projectRoot --script "res://tests/$testScript" 2>&1
         $testExitCode = $LASTEXITCODE
         $testOutput | Write-Output

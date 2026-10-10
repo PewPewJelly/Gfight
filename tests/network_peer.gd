@@ -58,13 +58,19 @@ func host_tick() -> bool:
 			for id in session.roster:
 				if id != 1:
 					remote_id = id
-			check(session.start_game(), "Host starts with two independent peers")
-			advance(1)
+			if not seen.has("unready"):
+				seen.unready = true
+				check(not session.can_start(), "Host cannot start before participant is ready")
+			if session.ready_states.get(remote_id, false):
+				check(session.start_game(), "Host starts with two independent ready peers")
+				place_for_test()
+				advance(1)
 		return false
 	if stage == 7:
-		if age() > 600:
-			check(session.phase == "lobby" and session.can_start(), "Shared return to lobby")
-			check(session.start_game(), "Network rematch starts")
+		if session.phase == "lobby" and session.can_start():
+			check(session.confirmed.is_empty(), "Shared return to lobby clears confirmations")
+			check(session.start_game(), "Network rematch starts after participant is ready again")
+			place_for_test()
 			advance(8)
 		return false
 	var arena: FightArena = session.arena
@@ -101,13 +107,21 @@ func host_tick() -> bool:
 		advance(6)
 	elif stage == 6 and age() > 700:
 		check(session.phase == "result" and arena.result == "P1 WINS", "Host receives final winner")
-		session.return_to_lobby()
+		check(host.kills == 1 and host.dealt_percent == 12.0, "Host credited with kills and dealt percent")
+		session.confirm_result()
 		advance(7)
 	elif stage == 8:
 		if session.roster.size() == 1:
 			check(session.phase == "result" and session.arena.result == "P1 WINS", "Disconnect forfeits remote participant")
 			return true
 	return false
+
+## Skips the start countdown and uses fixed starts so movement checks are deterministic.
+func place_for_test() -> void:
+	var arena: FightArena = session.arena
+	arena.countdown_left = 0.0
+	arena.fighters[0].position = Vector2(320, 334)
+	arena.fighters[1].position = Vector2(830, 334)
 
 func client_tick() -> bool:
 	if session.phase == "playing" and is_instance_valid(session.arena):
@@ -139,10 +153,16 @@ func client_tick() -> bool:
 			session.leave()
 			return true
 	elif session.phase == "result":
-		seen.winner = true
-		check(session.arena.result == "P1 WINS" and session.arena.fighters[1].stocks == 0, "Client receives same final winner and elimination")
-	elif session.phase == "lobby" and seen.has("winner"):
-		seen.lobby = true
+		if not seen.has("winner"):
+			seen.winner = true
+			check(session.arena.result == "P1 WINS" and session.arena.fighters[1].stocks == 0, "Client receives same final winner and elimination")
+			check(session.arena.winner_id == 1 and session.arena.fighters[0].kills == 1, "Client receives result statistics")
+			session.confirm_result()
+	elif session.phase == "lobby":
+		if seen.has("winner"):
+			seen.lobby = true
+		if not session.ready_states.get(session.multiplayer.get_unique_id(), false):
+			session.set_ready(true)
 	return false
 
 func finish() -> void:

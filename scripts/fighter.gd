@@ -32,6 +32,15 @@ var down_was_down: bool = false
 var attack_kind: String = "forward"
 var attack_visual: Rect2
 var last_input_mask: int = 0
+## Match statistics (host-computed, replicated by snapshot).
+var kills: int = 0
+var dealt_percent: float = 0.0
+var last_attacker_id: int = 0
+## Arena frame of elimination; -1 while still in the match. Used for result ranks.
+var eliminated_frame: int = -1
+## Presentation only: own fighter shows the ▼나 marker, start countdown enlarges the tag.
+var is_local: bool = false
+var tag_emphasis: bool = false
 var attacks: Dictionary = {
 	"forward": preload("res://resources/basic_attack.tres"),
 	"up": preload("res://resources/up_attack.tres"),
@@ -58,6 +67,10 @@ func reset_round(at: Vector2) -> void:
 	last_input_mask = 0
 	stocks = CombatRules.INITIAL_STOCKS
 	percent = 0.0
+	kills = 0
+	dealt_percent = 0.0
+	last_attacker_id = 0
+	eliminated_frame = -1
 	damage_received = 0.0
 	invulnerability_left = 0.0
 	respawn_left = 0.0
@@ -220,7 +233,11 @@ func _draw() -> void:
 		color.a = 0.45 + 0.35 * absf(sin(invulnerability_left * 12.0))
 	draw_rect(Rect2(-HALF_SIZE, HALF_SIZE * 2.0), color)
 	draw_line(Vector2(0, -10), Vector2(facing * 15, -10), Color.WHITE, 3.0)
-	draw_string(ThemeDB.fallback_font, Vector2(-12, -34), "P%d" % player_slot, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
+	var tag_size := 28 if tag_emphasis else 16
+	var tag_top := -HALF_SIZE.y - 8.0
+	draw_string(ThemeDB.fallback_font, Vector2(-40, tag_top), "P%d" % player_slot, HORIZONTAL_ALIGNMENT_CENTER, 80, tag_size, tint if tag_emphasis else Color.WHITE)
+	if is_local:
+		draw_string(ThemeDB.fallback_font, Vector2(-40, tag_top - tag_size - 2.0), UiStyle.ME_MARK, HORIZONTAL_ALIGNMENT_CENTER, 80, 18, tint.lightened(0.3))
 	if attack_cooldown > movement.attack_cooldown - 0.12:
 		draw_rect(attack_visual, Color(1, 1, 1, 0.25))
 		draw_rect(attack_visual, Color.WHITE, false, 2.0)

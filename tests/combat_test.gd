@@ -56,10 +56,11 @@ func run() -> void:
 			if is_equal_approx(spawn.y + Fighter.HALF_SIZE.y, surface.position.y) and spawn.x >= surface.position.x + Fighter.HALF_SIZE.x and spawn.x <= surface.end.x - Fighter.HALF_SIZE.x:
 				on_surface = true
 		check(on_surface, "Random respawn touches a platform")
+	var delay: float = arena.rules.respawn_delay
 	arena.fighters[0].ring_out()
-	arena._physics_process(1.0)
+	arena._physics_process(delay * 0.5)
 	check(arena.fighters[0].life_state == Fighter.LifeState.WAITING, "Respawn waits configured delay")
-	arena._physics_process(1.01)
+	arena._physics_process(delay * 0.5 + 0.01)
 	check(arena.fighters[0].life_state == Fighter.LifeState.ACTIVE, "Respawn after delay")
 	arena.fighters[1].stocks = 1
 	arena.fighters[1].position = Vector2(-200, 0)
