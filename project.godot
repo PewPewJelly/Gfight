@@ -24,8 +24,9 @@ Session="*res://scripts/session.gd"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
+window/size/mode=3
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
+window/stretch/aspect="expand"
 
 [physics]
 
@@ -34,3 +35,4 @@ window/stretch/aspect="keep"
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+environment/defaults/default_clear_color=Color(0.0627451, 0.09803922, 0.15294118, 1)

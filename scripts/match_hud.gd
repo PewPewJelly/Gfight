@@ -57,7 +57,7 @@ func _draw() -> void:
 			local_fighter = fighter
 		_draw_card(Rect2(x, band.position.y + 12.0, card_width, band_height - 24.0), fighter)
 		x += card_width + gap
-		_draw_offscreen_arrow(fighter, Rect2(Vector2.ZERO, Vector2(screen.x, band.position.y)))
+		_draw_offscreen_arrow(fighter, Rect2(Vector2.ZERO, Vector2(screen.x, band.position.y)), arena.get_viewport().get_canvas_transform())
 	if arena.countdown_left > 0.0:
 		_draw_floating(screen, "%d" % ceili(arena.countdown_left))
 	elif _go_left > 0.0:
@@ -101,12 +101,14 @@ func _draw_floating(screen: Vector2, text: String) -> void:
 	draw_style_box(_floating_style, rect)
 	_text(rect, text, 52, UiStyle.TEXT)
 
-func _draw_offscreen_arrow(fighter: Fighter, view: Rect2) -> void:
-	if fighter.life_state != Fighter.LifeState.ACTIVE or view.has_point(fighter.position):
+## view is in screen space; the arena camera transform maps fighter positions onto it.
+func _draw_offscreen_arrow(fighter: Fighter, view: Rect2, world_to_screen: Transform2D) -> void:
+	var on_screen := world_to_screen * fighter.global_position
+	if fighter.life_state != Fighter.LifeState.ACTIVE or view.has_point(on_screen):
 		return
-	var tip := Vector2(clampf(fighter.position.x, arrow_size, view.end.x - arrow_size),
-		clampf(fighter.position.y, arrow_size, view.end.y - arrow_size))
-	var direction := (fighter.position - tip).normalized()
+	var tip := Vector2(clampf(on_screen.x, arrow_size, view.end.x - arrow_size),
+		clampf(on_screen.y, arrow_size, view.end.y - arrow_size))
+	var direction := (on_screen - tip).normalized()
 	if direction.is_zero_approx():
 		return
 	var side := direction.orthogonal() * arrow_size * 0.6

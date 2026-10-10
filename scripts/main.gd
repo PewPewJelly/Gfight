@@ -85,12 +85,21 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	var key := (event as InputEventKey).physical_keycode
-	if key == KEY_ESCAPE and join_popup.visible:
+	if key == KEY_F11 or (key == KEY_ENTER and (event as InputEventKey).alt_pressed):
+		_toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+	elif key == KEY_ESCAPE and join_popup.visible:
 		_cancel_join()
 		get_viewport().set_input_as_handled()
 	elif (key == KEY_ENTER or key == KEY_KP_ENTER) and result_panel.visible:
 		Session.confirm_result()
 		get_viewport().set_input_as_handled()
+
+## Starts fullscreen (project setting); F11 or Alt+Enter switches to a window, e.g. to run
+## two copies on one computer.
+func _toggle_fullscreen() -> void:
+	var fullscreen := DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 func _refresh() -> void:
 	var phase := Session.phase

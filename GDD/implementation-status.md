@@ -25,6 +25,13 @@ Godot 4.7.2로 `project.godot`을 열고 F5를 누른다. 첫 화면은 S1 메�
 
 문구와 색은 `scripts/ui_style.gd` 한 곳에 있다. UI는 기존 방식대로 코드에서 노드를 만든다.
 
+### 화면 크기·전체화면
+
+- 기본 실행은 전체화면(`window/size/mode=3`). F11 또는 Alt+Enter로 창 모드 전환(한 컴퓨터에서 두 개 실행할 때).
+- 기준 해상도 1280×720, `stretch/mode=canvas_items`, `stretch/aspect=expand`. 16:9가 아닌 화면에서는 레터박스 없이 UI가 화면 가장자리에 붙고,
+  경기장은 Camera2D로 화면 가운데에 고정되어 여백만 늘어난다. 여백 색은 배경색(`default_clear_color`)과 같다.
+- 장외 판정 영역은 화면 크기와 상관없이 1280×720 기준 그대로다.
+
 ### UI·흐름 임시값 ([제안]/[미정])
 
 - 시작 카운트다운 3초(`combat_rules.tres` `start_countdown`), "시작!" 0.7초, 결과 화면 전 정지 0.8초, 페이드 0.2초, 토스트 3초.
@@ -50,7 +57,7 @@ Godot 4.7.2로 `project.godot`을 열고 F5를 누른다. 첫 화면은 S1 메�
 | attack-handoff.md | J 공격, W/J 위, A·D/J 앞, S/J 아래, 방향별 범위·배율, 넉백 중 공격 제한 | gameplay_test / network_peer |
 | defeatNrule.md | 배율·피해 누적, 공격 방향 발사, 장외 단일 차감, 재스폰·무적·탈락·승리 | combat_test / network_peer |
 
-기존 `control.tscn`과 원본 핸드오프 문서는 보존한다. 이전 장외 구현 설명은
+쓰이지 않던 `control.tscn`과 이미지(`E.png`, `EBFD6E3D-….png`)는 삭제했다. 원본 핸드오프 문서는 보존한다. 이전 장외 구현 설명은
 `defeat-implementation.md`에 있으며, 실행 씬·공격·충돌 관련 설명은 이 문서가 최신이다.
 
 ## 미정 항목의 임시 구현 정책

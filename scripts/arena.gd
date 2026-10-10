@@ -51,13 +51,18 @@ func _ready() -> void:
 			fighter.controls = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_K]
 		add_child(fighter)
 		fighters.append(fighter)
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	hud = Label.new()
-	hud.position = Vector2(24, 18)
-	hud.add_theme_font_size_override("font_size", 22)
-	layer.add_child(hud)
-	hud.visible = standalone
+	# Fixed camera on the stage center: wider or taller fullscreen windows add margin
+	# around the whole stage instead of cutting it off (window/stretch/aspect = expand).
+	var camera := Camera2D.new()
+	camera.position = screen_bounds.get_center()
+	add_child(camera)
+	if standalone:
+		var layer := CanvasLayer.new()
+		add_child(layer)
+		hud = Label.new()
+		hud.position = Vector2(24, 18)
+		hud.add_theme_font_size_override("font_size", 22)
+		layer.add_child(hud)
 	restart()
 
 func restart() -> void:
@@ -211,7 +216,7 @@ func _spawn_location(fighter: Fighter) -> Vector2:
 	return Vector2.INF if candidates.is_empty() else candidates[rng.randi_range(0, candidates.size() - 1)]
 
 func _update_hud() -> void:
-	if not standalone:
+	if hud == null:
 		return
 	var instructions := "A/D move · W jump · S drop · J attack (W/J up, S/J down)"
 	if standalone:
