@@ -1,35 +1,3 @@
 [gd_scene format=3 uid="uid://dbvahnq0latuf"]
 
-[ext_resource type="Texture2D" uid="uid://b8bqp573skf4n" path="res://E.png" id="1_0fbet"]
-[ext_resource type="Texture2D" uid="uid://c62phtq80t8bg" path="res://EBFD6E3D-2CF1-4E2F-A75D-42E29A1AE996.png" id="2_62e2m"]
-
-[node name="Control" type="Control" unique_id=2065442436]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -7.0
-offset_top = -138.0
-offset_right = -7.0
-offset_bottom = -138.0
-grow_horizontal = 2
-grow_vertical = 2
-metadata/_edit_vertical_guides_ = [-4918.0]
-
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=293583636]
-texture = ExtResource("1_0fbet")
-
-[node name="Sprite2D2" type="Sprite2D" parent="." unique_id=1768159703]
-texture = ExtResource("1_0fbet")
-
-[node name="Sprite2D2" type="Sprite2D" parent="Sprite2D2" unique_id=828358397]
-texture = ExtResource("1_0fbet")
-
-[node name="Node2D" type="Node2D" parent="." unique_id=511731357]
-
-[node name="Sprite2D" type="Sprite2D" parent="Node2D" unique_id=488050398]
-
-[node name="Sprite2D" type="Sprite2D" parent="Node2D/Sprite2D" unique_id=351173377]
-position = Vector2(1174, 38.99997)
-scale = Vector2(2.3886077, 2.128235)
-texture = ExtResource("2_62e2m")
+[node name="Node2D" type="Node2D" unique_id=1987632392]
