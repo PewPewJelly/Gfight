@@ -1,7 +1,7 @@
 class_name ResultScreen
 extends Control
 ## S4 result: winner line, one column per slot (rank, kills, dealt percent, confirm state)
-## and the Enter hint. Rebuilt from Session.arena whenever Session changes.
+## and the Enter hint. Rebuilt from Session.match_result() whenever Session changes.
 
 var _title: Label
 var _columns: HBoxContainer
@@ -39,47 +39,43 @@ func _ready() -> void:
 
 func refresh() -> void:
 	var arena := Session.arena
-	if not is_instance_valid(arena):
+	var result := Session.match_result()
+	if result == null:
 		return
-	if arena.winner_id > 0:
-		var winner_slot := 0
-		for fighter in arena.fighters:
-			if fighter.player_id == arena.winner_id:
-				winner_slot = fighter.player_slot
-		_title.text = UiStyle.WINS % winner_slot
-		_title.add_theme_color_override("font_color", UiStyle.slot_color(winner_slot))
+	var fighters := {}
+	for fighter in arena.fighters:
+		fighters[fighter.player_id] = fighter
+	if result.winner_id > 0:
+		var winner: Fighter = fighters[result.winner_id]
+		_title.text = UiStyle.DUMMY_WINS if winner.is_dummy else UiStyle.WINS % winner.player_slot
+		_title.add_theme_color_override("font_color", winner.tint)
 	else:
 		_title.text = UiStyle.DRAW
 		_title.add_theme_color_override("font_color", UiStyle.TEXT)
-	var entries: Array[Dictionary] = []
-	for fighter in arena.fighters:
-		entries.append({"id": fighter.player_id, "out": fighter.eliminated_frame})
-	var ranks := FightArena.compute_ranks(entries)
 	for child in _columns.get_children():
 		_columns.remove_child(child)
 		child.queue_free()
 	var confirmed_count := 0
-	for fighter in arena.fighters:
-		var present := Session.local_mode or Session.roster.has(fighter.player_id)
-		var done: bool = Session.confirmed.get(fighter.player_id, false)
-		if present and done:
+	for entry in result.entries:
+		var done: bool = Session.confirmed.get(entry.peer_id, false)
+		if entry.present and done and not entry.is_dummy:
 			confirmed_count += 1
-		_columns.add_child(_column_for(fighter, int(ranks[fighter.player_id]), arena.winner_id, present, done))
-	var total := Session.roster.size()
-	if Session.local_mode:
-		# Local play has one keyboard: a single Enter returns both players.
+		_columns.add_child(_column_for(fighters[entry.peer_id], entry, result.winner_id, done))
+	var total := Session.room.players.size()
+	if Session.is_offline():
+		# Offline play has one keyboard: a single Enter returns everyone.
 		total = 1
 		confirmed_count = 0
 	_hint.text = UiStyle.CONFIRM_HINT % [mini(confirmed_count, total), total]
 
-func _column_for(fighter: Fighter, rank: int, winner_id: int, present: bool, done: bool) -> PanelContainer:
+func _column_for(fighter: Fighter, entry: MatchResultEntry, winner_id: int, done: bool) -> PanelContainer:
 	var mine := fighter.is_local
-	var first := rank == 1
+	var first := entry.rank == 1
 	var border := UiStyle.TEXT_DIM
 	var width := 1
 	if first:
 		# A draw shares 1st place with one neutral border and no crown.
-		border = UiStyle.slot_color(fighter.player_slot) if winner_id > 0 else UiStyle.TEXT
+		border = fighter.tint if winner_id > 0 else UiStyle.TEXT
 		width = 3
 	elif mine:
 		border = UiStyle.ACCENT
@@ -90,14 +86,20 @@ func _column_for(fighter: Fighter, rank: int, winner_id: int, present: bool, don
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 10)
 	panel.add_child(column)
-	_add(column, "P%d%s" % [fighter.player_slot, " " + UiStyle.ME_TAG if mine else ""], 22, UiStyle.TEXT)
-	_add(column, "■ %s" % UiStyle.SLOT_COLOR_NAMES[(fighter.player_slot - 1) % UiStyle.SLOT_COLOR_NAMES.size()], 18, UiStyle.slot_color(fighter.player_slot))
-	_add(column, (UiStyle.CROWN if first and winner_id > 0 else "") + UiStyle.RANK % rank, 26, UiStyle.TEXT)
+	if entry.is_dummy:
+		_add(column, UiStyle.DUMMY, 22, UiStyle.TEXT)
+		_add(column, "■", 18, fighter.tint)
+	else:
+		_add(column, "P%d%s" % [entry.slot, " " + UiStyle.ME_TAG if mine else ""], 22, UiStyle.TEXT)
+		_add(column, "■ %s" % UiStyle.SLOT_COLOR_NAMES[(entry.slot - 1) % UiStyle.SLOT_COLOR_NAMES.size()], 18, fighter.tint)
+	_add(column, (UiStyle.CROWN if first and winner_id > 0 else "") + UiStyle.RANK % entry.rank, 26, UiStyle.TEXT)
 	column.add_child(HSeparator.new())
-	_add_stat(column, UiStyle.KILLS, "%d" % fighter.kills)
-	_add_stat(column, UiStyle.DEALT, "%d%%" % roundi(fighter.dealt_percent))
+	_add_stat(column, UiStyle.KILLS, "%d" % entry.kills)
+	_add_stat(column, UiStyle.DEALT, "%d%%" % roundi(entry.dealt_percent))
 	column.add_child(HSeparator.new())
-	if not present:
+	if entry.is_dummy:
+		_add(column, "", 18, UiStyle.TEXT_DIM)
+	elif not entry.present:
 		_add(column, UiStyle.LEFT_RESULT, 18, UiStyle.TEXT_DIM)
 	elif done:
 		_add(column, UiStyle.CONFIRMED, 18, UiStyle.READY)

@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/lobby/settings_panel.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/lobby/slant_box.gd" id="2_box"]
+
+[node name="SettingsPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 840.0
+offset_top = -16.0
+offset_right = 1914.0
+offset_bottom = 1086.0
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="Panel" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 840.0
+offset_bottom = 1102.0
+mouse_filter = 2
+script = ExtResource("2_box")
+fill = Color(0.2901961, 0.2901961, 0.2901961, 1)
+border_color = Color(0.22745098, 0.22745098, 0.22745098, 1)
+corner_radius = 22.0
+
+[node name="Content" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

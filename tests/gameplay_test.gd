@@ -17,15 +17,11 @@ func frames(count: int) -> void:
 
 func run() -> void:
 	var session = root.get_node("Session")
-	var main = load("res://main.tscn").instantiate()
-	main.result_delay = 0.0
-	root.add_child(main)
-	check(main.menu.visible and not main.lobby.visible, "Game opens on menu")
-	session.roster = {1: "One"}
-	session.phase = "lobby"
+	check(session.phase == session.Phase.MENU and session.arena == null, "Game opens outside any room")
+	session._open_room(ScreenTypes.RoomMode.ONLINE, "")
 	check(not session.start_game(), "One participant cannot start")
 	session.local_game()
-	check(main.lobby.visible and session.can_start(), "Local lobby has independent participants")
+	check(session.phase == session.Phase.LOBBY and session.can_start(), "Local lobby has independent participants")
 	check(session.start_game(), "Two participants start")
 	await frames(3)
 	check(session.input_for(1) == 0 and session.input_for(2) == 0, "Local keyboard bindings return valid input masks")
@@ -142,14 +138,15 @@ func run() -> void:
 	other.stocks = 0
 	arena._resolve_result()
 	await frames(2)
-	check(session.phase == "result" and main.result_panel.visible, "Victory opens result panel")
+	check(session.phase == session.Phase.RESULT and session.match_result().winner_id == 1, "Victory opens the result with P1 as winner")
 	session.return_to_lobby()
-	check(session.phase == "lobby" and main.lobby.visible, "Host can return to lobby")
+	check(session.phase == session.Phase.LOBBY and session.arena == null, "Host can return to lobby")
 	check(session.start_game(), "Rematch starts")
 	check(session.arena.fighters[0].stocks == 3 and session.arena.fighters[1].percent == 0.0, "Rematch resets stocks and percent")
 	session.leave()
 	session.local_game()
-	session.roster = {1: "P1", 2: "P2", 3: "P3", 4: "P4"}
+	for id in [3, 4]:
+		session.room.add_player(PlayerData.create(id, "P%d" % id, session.catalog.default_character()))
 	check(session.start_game(), "Four-person roster starts")
 	session.arena.set_physics_process(false)
 	await frames(3)
@@ -160,6 +157,6 @@ func run() -> void:
 			var neighbor: Fighter = session.arena.fighters[next]
 			check(not Rect2(current.position - Fighter.HALF_SIZE, Fighter.HALF_SIZE * 2.0).intersects(Rect2(neighbor.position - Fighter.HALF_SIZE, Fighter.HALF_SIZE * 2.0)), "Four-player starts do not overlap")
 	session.leave()
-	check(main.menu.visible and session.arena == null, "Leave clears arena and returns to menu")
+	check(session.phase == session.Phase.MENU and session.arena == null, "Leave clears arena and returns to menu")
 	print("Gameplay checks complete: %d failures" % failures)
 	quit(1 if failures > 0 else 0)

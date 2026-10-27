@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://dnt8fccmdxe3m"]
 
-[ext_resource type="Script" uid="uid://7vkaat5ujslp" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" uid="uid://7vkaat5ujslp" path="res://scripts/screen_router.gd" id="1"]
 
-[node name="Main" type="Control" unique_id=610754888]
+[node name="ScreenRouter" type="Control" unique_id=610754888]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0

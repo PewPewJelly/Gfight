@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ContentCatalog" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/content_catalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://scripts/data/character_def.gd" id="2_character"]
+[ext_resource type="Script" path="res://scripts/data/map_def.gd" id="3_map"]
+
+[sub_resource type="Resource" id="Resource_test_fighter"]
+script = ExtResource("2_character")
+id = &"test_fighter"
+display_name = "테스트 파이터"
+
+[sub_resource type="Resource" id="Resource_test_map"]
+script = ExtResource("3_map")
+id = &"test_map"
+display_name = "테스트 맵"
+english_name = "TestMap"
+
+[resource]
+script = ExtResource("1_catalog")
+characters = Array[ExtResource("2_character")]([SubResource("Resource_test_fighter")])
+maps = Array[ExtResource("3_map")]([SubResource("Resource_test_map")])
