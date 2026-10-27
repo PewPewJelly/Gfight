@@ -10,7 +10,7 @@
 | 좌표 기준 | 1920 × 1080 (00 §1). 모든 좌표는 `Stage`(테두리 5px 안쪽, 1910×1070)의 왼쪽 위 기준 |
 | 입력 장치 | 마우스 전용. 키보드는 Enter(채팅 열기/보내기), Esc(닫기)만. 포커스 이동·Space 선택 없음 |
 | 원본 | 사용자 제공 "GFight 대기방(Lobby) UI — 구조 및 상태 로직 명세" (React 프로토타입, Make 버전 5)를 Godot 구조와 `00_System_Context.md` 규칙으로 다시 쓴 것 |
-| 문서 상태 | v0.3 (2026-10-27). 결정 19건 반영. 결정 필요 사항 없음 |
+| 문서 상태 | v0.4 (2026-10-27). 결정 19건 반영, 아이콘·캐릭터·맵 그림을 SVG 파일로 전환. 결정 필요 사항 없음 |
 | 참조 | `00_System_Context.md` (항상 함께 읽음), `01-start-game-spec.md` (진입), `scripts/session.gd`, `scripts/ui_style.gd` |
 
 ### 이 문서 읽는 법
@@ -66,7 +66,7 @@
 | `left` 화면 + [다시 입장하기] | 나가면 SYS-01 게임하기 |
 | 디버그 바 | 없음 |
 | `TabRail` 컨테이너 `border-[10px]` (화면 위 20px 띠) | 없음. 그 자리는 스테이지 배경과 줄무늬로 채움 |
-| SVG 일러스트, CSS skew | `_draw()`로 도형 그리기, 기울기는 다각형 좌표로 계산 |
+| SVG 일러스트, CSS skew | 아이콘·캐릭터·맵 그림은 `assets/`의 SVG 파일. 기울어진 상자·테두리는 `_draw()`로 그리고 기울기는 다각형 좌표로 계산 |
 
 ---
 
@@ -264,13 +264,13 @@ LobbyScreen (Control, Full Rect)                                   lobby_screen.
 | `SlantTab` | BaseButton | 탭. 내부에 `SlantBox` + `Label`. `@export active: bool` |
 | `RoundButton` | BaseButton | 원형 버튼. `@export fill, border_color, shadow_color: Color`, `icon: LobbyIcons.Kind` |
 | `Chip` | PanelContainer | 룸 태그. 높이 44, 둥근 알약, #4E4E4E, 20px bold 흰 글자, 앞 라벨 부분 흰색 55% |
-| `CharacterArt` | Control | `@export pick: StringName`. `CharacterDef.shape`를 fill/stroke로 그림. `random`이면 `?` |
-| `MapArt` | Control | `@export pick: StringName`. 맵 그림. TestMap은 경기장 윤곽(바닥 1개 + 발판 2개)을 단순 도형으로 [제안]. `random`이면 큰 `?` |
+| `CharacterArt` | TextureRect | `@export pick: StringName`. `res://assets/characters/{pick}.svg`를 표시(`KEEP_ASPECT_CENTERED`). 파일 이름 = 캐릭터 id. `random`이면 `random.svg`(`?`). 파일이 없으면 `push_warning` + `random.svg` |
+| `MapArt` | TextureRect | `@export pick: StringName`. `res://assets/maps/{pick}.svg`를 표시(640×360 비율, `KEEP_ASPECT_COVERED`). 파일 이름 = 맵 id. TestMap은 `test_map.svg`(바닥 1개 + 발판 2개). `random`이면 `random.svg`(큰 `?`). 파일이 없으면 `push_warning` + `random.svg` |
 | `SelectTile` | BaseButton | 캐릭터·맵 공용 타일 (3.8) |
 | `BubbleView` / `BubbleInput` | Control | 말풍선 (3.6) |
 | `SlantGrid` | Control | 무한 반복 기울어진 그리드 (3.8) |
 | `PlayerList`, `SettingsPanel` | Control | 3.7, 3.9 |
-| `LobbyIcons` | RefCounted (정적) | `enum Kind { X, O, V, STAR, BACK, INFO, DOTS, MUTE, PLAY, LOCK, COPY }`, `static func draw(canvas: CanvasItem, kind: Kind, rect: Rect2, color: Color) -> void` |
+| `LobbyIcons` | RefCounted (정적) | `enum Kind { X, O, V, STAR, BACK, INFO, DOTS, MUTE, PLAY, LOCK, COPY }`. 각 Kind = `res://assets/icons/{소문자 이름}.svg`(64×64, 흰색). `static func texture(kind: Kind) -> Texture2D`(처음 한 번 `load` 후 캐시), `static func draw(canvas: CanvasItem, kind: Kind, rect: Rect2, color: Color) -> void`(= `canvas.draw_texture_rect(texture(kind), rect, false, color)`) |
 
 ### 3.4 색 (`UiStyle`에 `LOBBY_` 접두사 상수로 추가)
 

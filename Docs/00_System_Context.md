@@ -2,7 +2,7 @@
 
 > 모든 화면 명세서(SYS-01 이후)와 코딩 AI 프롬프트 앞에 항상 붙이는 문서다. 짧게 유지한다.
 > 세부 규칙의 원문은 저장소 루트 `AI_GODOT_GUIDE.md`이고, 두 문서가 다르면 그 파일을 따른다.
-> v0.2 (2026-10-27). 결정 3건 반영, 결정 필요 사항 없음
+> v0.3 (2026-10-27). 결정 3건 반영 + 아이콘·그림을 SVG 파일로 전환. 결정 필요 사항 없음
 
 ## 0. 이 문서의 위치
 
@@ -31,8 +31,8 @@
 | RPC 채널 | 0 = reliable 이벤트, 1 = 상태 스냅샷, 2 = 입력 | 사람 |
 | 충돌 레이어 | 1 = 월드(땅·플랫폼), 2 = 플레이어 | 사람 |
 | 조정값 | `resources/*.tres` (`MovementSettings`, `CombatRules`, `AttackData`) | 기획 |
-| 폴더 | 기존 씬 `*.tscn` 루트(`main.tscn`, `arena.tscn`), 화면 씬 `scenes/ui/`, 화면 스크립트 `scripts/ui/`, 데이터 클래스 `scripts/data/`, 그 외 스크립트 `scripts/`, 리소스 `resources/`, 테스트 `tests/` | 사람 |
-| UI 원칙 | 기본 도형과 글자만. 이미지 아이콘 없이 `_draw()`로 그림 | 기획 |
+| 폴더 | 기존 씬 `*.tscn` 루트(`main.tscn`, `arena.tscn`), 화면 씬 `scenes/ui/`, 화면 스크립트 `scripts/ui/`, 데이터 클래스 `scripts/data/`, 그 외 스크립트 `scripts/`, 리소스 `resources/`, 그림 파일 `assets/`(SVG, 하위 `icons/`·`start_game/`·`characters/`·`maps/`), 테스트 `tests/` | 사람 |
+| UI 원칙 | 기본 도형과 글자만. 아이콘·캐릭터·맵 그림은 `assets/`의 SVG 파일을 `TextureRect` 또는 `draw_texture_rect()`로 표시한다. 단색 아이콘은 흰색으로 그려져 있으므로 색은 `self_modulate`(또는 draw 색 인자)로 입힌다. 상자·테두리·그림자·줄무늬 같은 UI 도형은 계속 `_draw()`/StyleBox로 그린다. 그림 목록과 출처는 `assets/README.md` | 기획 |
 | 입력 장치 | 게임 조작은 키보드. 메뉴 화면은 마우스 전용(키보드·패드 포커스 이동 없음), 단축키는 Enter/Esc만 | 기획 |
 
 ---

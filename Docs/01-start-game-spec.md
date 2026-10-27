@@ -9,7 +9,7 @@
 | 엔진 | Godot 4.7, GDScript |
 | 기준 해상도 | 1280 × 720 (`project.godot`: `stretch/mode = canvas_items`, `aspect = expand`) |
 | 입력 장치 | 마우스 전용. 키보드 단축키는 Enter(주소 확인), Esc(닫기/뒤로)만. 키보드·게임패드 포커스 이동은 만들지 않는다 |
-| 문서 상태 | v0.3 (2026-10-27). 기획 답변 14건 반영, 결정 필요 사항 없음 |
+| 문서 상태 | v0.4 (2026-10-27). 기획 답변 14건 반영, 아이콘을 SVG 파일로 전환. 결정 필요 사항 없음 |
 | 참조 | `scripts/session.gd`, `scripts/ui_style.gd`, `scripts/main.gd`. 기존 `Design/match-flow-scene-ux.md` S1/S1-1은 이 문서로 대체된다(아래 0.2) |
 
 ### 이 문서 읽는 법 (시스템 명세서 공통 규칙)
@@ -156,14 +156,14 @@ StartGameScreen (Control, Full Rect)                         start_game_screen.g
 │  ├─ %RealArea (Control, 560×360, mouse_filter = PASS)       ← 호버 판정 영역
 │  │  ├─ %RealButton (Button, flat, 280×320, focus_mode = NONE)
 │  │  │  └─ RealColumn (VBoxContainer, separation 8, alignment CENTER, mouse_filter = IGNORE)
-│  │  │     ├─ %RealIcon (Control, 240×240, mouse_filter = IGNORE, script = sword_icon.gd)
+│  │  │     ├─ %RealIcon (TextureRect, 240×240, mouse_filter = IGNORE, texture = res://assets/start_game/sword.svg)
 │  │  │     └─ RealLabel (Label, text = UiStyle.MODE_REAL "실전", font 32, CENTER)
 │  │  └─ %RealSubMenu (VBoxContainer, RealButton 오른쪽 16px, 세로 중앙, separation 12)
 │  │     ├─ %JoinRoomButton (Button, 200×44, focus_mode = NONE, text = UiStyle.JOIN_ROOM "방 참여")
 │  │     └─ %CreateRoomButton (Button, 200×44, focus_mode = NONE, text = UiStyle.CREATE_ROOM "방 생성")
 │  └─ %TrainingButton (Button, flat, 280×320, focus_mode = NONE)
 │     └─ TrainingColumn (VBoxContainer, separation 8, alignment CENTER, mouse_filter = IGNORE)
-│        ├─ %TrainingIcon (Control, 240×240, mouse_filter = IGNORE, script = target_icon.gd)
+│        ├─ %TrainingIcon (TextureRect, 240×240, mouse_filter = IGNORE, texture = res://assets/start_game/target.svg)
 │        └─ TrainingLabel (Label, text = UiStyle.MODE_TRAINING "훈련장", font 32, CENTER)
 ├─ %Toast (PanelContainer, Center Bottom, 하단에서 110px 위, 기본 숨김)
 │  └─ %ToastLabel (Label, font 18)
@@ -186,27 +186,29 @@ StartGameScreen (Control, Full Rect)                         start_game_screen.g
 - 새 `UiStyle` 상수: `PLAY_TITLE`, `MODE_REAL`, `MODE_TRAINING`, `JOIN_ROOM`, `CREATE_ROOM`, `JOIN_ADDRESS_TITLE`, `CONFIRM`. 재사용: `CANCEL`, `CONNECTING`, `CREATING`, 오류 문구 5종, `ROOM_CLOSED`, `HOST_LOST`.
 - 폐기할 기존 상수: `JOIN`("게임 참여"), `CREATE`("게임 생성"), `JOIN_CONFIRM`("참여"), `ADDRESS`("주소"). 메인 화면의 `QUIT`는 SYS-00에서 정한다.
 
-### 3.2 아이콘 그리기 (코드로 그림, 이미지 파일 없음)
+### 3.2 아이콘 그림 (SVG 파일)
 
-두 아이콘 모두 `Control._draw()`에서 선과 원만으로 그린다. 좌표는 240×240 상자 기준, 중심 (120, 120). 색: 기본 `UiStyle.TEXT #e8eef7`, 실전 영역이 펼쳐진 동안 실전 아이콘만 `UiStyle.ACCENT #4f7cff`.
+두 아이콘은 `res://assets/start_game/sword.svg`, `target.svg`를 `TextureRect`로 표시한다(`stretch_mode = KEEP_ASPECT_CENTERED`). 파일은 240×240, 중심 (120, 120), 흰색으로 그려져 있다. 색은 `self_modulate`로 입힌다: 기본 `UiStyle.TEXT #e8eef7`, 실전 영역이 펼쳐진 동안 RealIcon만 `UiStyle.ACCENT #4f7cff`. 과녁 중심점의 빨강은 파일에 들어 있고 `self_modulate`와 곱해진다.
 
-**`sword_icon.gd` (검 2개 교차)**
+아래 표는 SVG에 그려진 모양이다. 그림을 고칠 때 기준으로 쓴다.
+
+**`sword.svg` (검 2개 교차)**
 
 | 부품 | 도형 | 수치 |
 |---|---|---|
-| 칼날 | `draw_line` 2개 | (40, 200) → (190, 50), (200, 200) → (50, 50). 두께 12px |
-| 칼끝 | `draw_colored_polygon` 삼각형 2개 | 각 칼날 끝에 길이 24px, 밑변 12px |
-| 손잡이 막이 | `draw_line` 2개 | 칼날 아래 끝에서 30px 지점에 칼날과 수직, 길이 48px, 두께 10px |
+| 칼날 | 선 2개 | (40, 200) → (190, 50), (200, 200) → (50, 50). 두께 12px |
+| 칼끝 | 삼각형 2개 | 각 칼날 끝에 길이 24px, 밑변 12px |
+| 손잡이 막이 | 선 2개 | 칼날 아래 끝에서 30px 지점에 칼날과 수직, 길이 48px, 두께 10px |
 | 손잡이 | 칼날 연장 | 막이 아래로 30px, 두께 14px |
 
-**`target_icon.gd` (과녁)**
+**`target.svg` (과녁)**
 
 | 부품 | 도형 | 수치 |
 |---|---|---|
-| 바깥 고리 | `draw_arc` (0~TAU) | 반지름 108px, 두께 12px |
-| 가운데 고리 | `draw_arc` | 반지름 72px, 두께 12px |
-| 안쪽 고리 | `draw_arc` | 반지름 36px, 두께 12px |
-| 중심점 | `draw_circle` | 반지름 10px, 색 `UiStyle.ERROR #ff5a5a` |
+| 바깥 고리 | 원 테두리 | 반지름 108px, 두께 12px |
+| 가운데 고리 | 원 테두리 | 반지름 72px, 두께 12px |
+| 안쪽 고리 | 원 테두리 | 반지름 36px, 두께 12px |
+| 중심점 | 채운 원 | 반지름 10px, 색 #ff5a5a (파일에 고정) |
 
 ### 3.3 상태별 표시 규칙
 
@@ -434,7 +436,7 @@ var _collapse_ticket: int = 0     # 호버 닫기 예약 취소용 세대 번호
 | 5 | 키보드·게임패드 조작 | 이번에는 만들지 않음(Esc/Enter 단축키만) |
 | 6 | 주소 입력 칸 기본값 | 마지막 접속 주소, 없으면 내 컴퓨터 주소. 클릭 시 전체 선택 |
 | 7 | 빨간 글씨 범위 | 형식 오류 + 네트워크 오류 4종 모두 |
-| 8 | 아이콘 | 코드로 선·원을 그림 |
+| 8 | 아이콘 | `assets/start_game/`의 SVG 파일 (2026-10-27 변경. 처음 결정은 코드로 선·원을 그림) |
 | 9 | 대기방에서 돌아오는 화면 | 게임하기 화면 |
 | 10 | 화면 전환 구조 | 화면별 `.tscn` + `ScreenRouter` (0.3) |
 | 11 | 버튼 문구 | 초안 문구로 통일 ([방 참여][방 생성][확인][취소]) |
