@@ -68,14 +68,14 @@ func _draw() -> void:
 		_text(strip, UiStyle.SPECTATING, 22, UiStyle.TEXT)
 
 func _draw_card(rect: Rect2, fighter: Fighter) -> void:
-	var gone := not Session.local_mode and not Session.roster.has(fighter.player_id)
+	var gone := not fighter.is_dummy and not Session.room.has_player(fighter.player_id)
 	var out := gone or fighter.life_state == Fighter.LifeState.ELIMINATED
 	draw_style_box(_card_styles[int(out) * 2 + int(fighter.is_local)], rect)
-	var color := UiStyle.slot_color(fighter.player_slot)
+	var color := fighter.tint
 	if out:
 		color = color.darkened(0.5)
 	draw_rect(Rect2(rect.position + Vector2(14, 14), Vector2(14, 14)), color)
-	var title := UiStyle.slot_title(fighter.player_slot)
+	var title := UiStyle.DUMMY if fighter.is_dummy else UiStyle.slot_title(fighter.player_slot)
 	if fighter.is_local:
 		title += " " + UiStyle.ME_TAG
 	draw_string(_font, rect.position + Vector2(36, 27), title, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 44, 16, UiStyle.TEXT_DIM if out else UiStyle.TEXT)
@@ -94,7 +94,7 @@ func _draw_card(rect: Rect2, fighter: Fighter) -> void:
 	_text(Rect2(rect.position + Vector2(0, 70), Vector2(rect.size.x, 20)), " ".join(stocks), 18, UiStyle.TEXT_DIM if out else UiStyle.TEXT)
 	if fighter.invulnerability_left > 0.0 and fighter.life_state == Fighter.LifeState.ACTIVE:
 		var ratio := clampf(fighter.invulnerability_left / CombatRules.RESPAWN_INVULNERABILITY, 0.0, 1.0)
-		draw_rect(Rect2(rect.position.x + 12, rect.end.y - 8, (rect.size.x - 24) * ratio, 3), UiStyle.slot_color(fighter.player_slot))
+		draw_rect(Rect2(rect.position.x + 12, rect.end.y - 8, (rect.size.x - 24) * ratio, 3), fighter.tint)
 
 func _draw_floating(screen: Vector2, text: String) -> void:
 	var rect := Rect2(screen.x / 2.0 - 140.0, screen.y * 0.3 - 50.0, 280.0, 100.0)
@@ -113,7 +113,7 @@ func _draw_offscreen_arrow(fighter: Fighter, view: Rect2, world_to_screen: Trans
 		return
 	var side := direction.orthogonal() * arrow_size * 0.6
 	var base := tip - direction * arrow_size
-	draw_colored_polygon(PackedVector2Array([tip, base + side, base - side]), UiStyle.slot_color(fighter.player_slot))
+	draw_colored_polygon(PackedVector2Array([tip, base + side, base - side]), fighter.tint)
 
 func _text(rect: Rect2, text: String, font_size: int, color: Color) -> void:
 	var baseline := rect.position.y + (rect.size.y + _font.get_ascent(font_size) - _font.get_descent(font_size)) / 2.0

@@ -1,0 +1,285 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/start_game_screen.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/start_game/sword.svg" id="2_sword"]
+[ext_resource type="Texture2D" path="res://assets/start_game/target.svg" id="3_target"]
+
+[node name="StartGameScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0627451, 0.09803922, 0.15294118, 1)
+
+[node name="TopBar" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 92.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="TopBarRow" type="HBoxContainer" parent="TopBar"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="BackButton" type="Button" parent="TopBar/TopBarRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 22
+text = "<"
+
+[node name="LocationLabel" type="Label" parent="TopBar/TopBarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 26
+
+[node name="ModeRow" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -500.0
+offset_top = -180.0
+offset_right = 500.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 160
+
+[node name="RealArea" type="Control" parent="ModeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(560, 360)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="RealButton" type="Button" parent="ModeRow/RealArea"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 20.0
+offset_right = 280.0
+offset_bottom = 340.0
+focus_mode = 0
+flat = true
+
+[node name="RealColumn" type="VBoxContainer" parent="ModeRow/RealArea/RealButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="RealIcon" type="TextureRect" parent="ModeRow/RealArea/RealButton/RealColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 240)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+texture = ExtResource("2_sword")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RealLabel" type="Label" parent="ModeRow/RealArea/RealButton/RealColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+
+[node name="RealSubMenu" type="VBoxContainer" parent="ModeRow/RealArea"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 296.0
+offset_top = 130.0
+offset_right = 496.0
+offset_bottom = 230.0
+theme_override_constants/separation = 12
+
+[node name="JoinRoomButton" type="Button" parent="ModeRow/RealArea/RealSubMenu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 44)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+
+[node name="CreateRoomButton" type="Button" parent="ModeRow/RealArea/RealSubMenu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 44)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+
+[node name="TrainingButton" type="Button" parent="ModeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 320)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+flat = true
+
+[node name="TrainingColumn" type="VBoxContainer" parent="ModeRow/TrainingButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="TrainingIcon" type="TextureRect" parent="ModeRow/TrainingButton/TrainingColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 240)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+texture = ExtResource("3_target")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TrainingLabel" type="Label" parent="ModeRow/TrainingButton/TrainingColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+
+[node name="Toast" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -160.0
+offset_right = 150.0
+offset_bottom = -110.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="ToastLabel" type="Label" parent="Toast"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+
+[node name="JoinPopup" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dimmer" type="ColorRect" parent="JoinPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.65)
+
+[node name="JoinPanel" type="PanelContainer" parent="JoinPopup"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(480, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -110.0
+offset_right = 240.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="JoinColumn" type="VBoxContainer" parent="JoinPopup/JoinPanel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="JoinTitle" type="Label" parent="JoinPopup/JoinPanel/JoinColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+
+[node name="AddressField" type="LineEdit" parent="JoinPopup/JoinPanel/JoinColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+max_length = 64
+select_all_on_focus = true
+
+[node name="JoinErrorLabel" type="Label" parent="JoinPopup/JoinPanel/JoinColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.3529412, 0.3529412, 1)
+theme_override_font_sizes/font_size = 16
+autowrap_mode = 3
+
+[node name="JoinButtons" type="HBoxContainer" parent="JoinPopup/JoinPanel/JoinColumn"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 2
+
+[node name="JoinCancelButton" type="Button" parent="JoinPopup/JoinPanel/JoinColumn/JoinButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 44)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+
+[node name="JoinConfirmButton" type="Button" parent="JoinPopup/JoinPanel/JoinColumn/JoinButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 44)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+
+[node name="Fade" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0627451, 0.09803922, 0.15294118, 0)

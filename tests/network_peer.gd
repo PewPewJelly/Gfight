@@ -24,7 +24,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	session = root.get_node("Session")
-	session.changed.connect(func(): print("%s phase=%s roster=%s message=%s" % [role, session.phase, session.roster, session.message]))
+	session.changed.connect(func(): print("%s phase=%s players=%s notice=%s" % [role, session.phase, session.room.ids(), session.room.notice]))
 	began = Time.get_ticks_msec()
 	if role == "host":
 		check(session.host_game("Host", 27849) == OK, "Create ENet room")
@@ -54,20 +54,18 @@ func age() -> int:
 
 func host_tick() -> bool:
 	if stage == 0:
-		if session.roster.size() == 2:
-			for id in session.roster:
-				if id != 1:
-					remote_id = id
+		if session.room.players.size() == 2:
+			remote_id = session.room.ids()[1]
 			if not seen.has("unready"):
 				seen.unready = true
 				check(not session.can_start(), "Host cannot start before participant is ready")
-			if session.ready_states.get(remote_id, false):
+			if session.room.player(remote_id).is_ready:
 				check(session.start_game(), "Host starts with two independent ready peers")
 				place_for_test()
 				advance(1)
 		return false
 	if stage == 7:
-		if session.phase == "lobby" and session.can_start():
+		if session.phase == session.Phase.LOBBY and session.can_start():
 			check(session.confirmed.is_empty(), "Shared return to lobby clears confirmations")
 			check(session.start_game(), "Network rematch starts after participant is ready again")
 			place_for_test()
@@ -106,13 +104,13 @@ func host_tick() -> bool:
 		client.position = Vector2(2000, 0)
 		advance(6)
 	elif stage == 6 and age() > 700:
-		check(session.phase == "result" and arena.result == "P1 WINS", "Host receives final winner")
+		check(session.phase == session.Phase.RESULT and arena.result == "P1 WINS", "Host receives final winner")
 		check(host.kills == 1 and host.dealt_percent == 12.0, "Host credited with kills and dealt percent")
 		session.confirm_result()
 		advance(7)
 	elif stage == 8:
-		if session.roster.size() == 1:
-			check(session.phase == "result" and session.arena.result == "P1 WINS", "Disconnect forfeits remote participant")
+		if session.room.players.size() == 1:
+			check(session.phase == session.Phase.RESULT and session.arena.result == "P1 WINS", "Disconnect forfeits remote participant")
 			return true
 	return false
 
@@ -124,7 +122,7 @@ func place_for_test() -> void:
 	arena.fighters[1].position = Vector2(830, 334)
 
 func client_tick() -> bool:
-	if session.phase == "playing" and is_instance_valid(session.arena):
+	if session.phase == session.Phase.PLAYING and is_instance_valid(session.arena):
 		var arena: FightArena = session.arena
 		var host: Fighter = arena.fighters[0]
 		var client: Fighter = arena.fighters[1]
@@ -136,8 +134,8 @@ func client_tick() -> bool:
 			check(client.stocks == 3 and client.percent == 0.0, "Initial client stocks/percent")
 			check(not arena.authoritative, "Client cannot simulate combat authority")
 			advance(1)
-		session.submit_local_input(2 if age() < 650 and session.generation == 1 else 0)
-		if client.position.x > first_client_x + 70.0 and session.generation == 1:
+		session.submit_local_input(2 if age() < 650 and session.room.generation == 1 else 0)
+		if client.position.x > first_client_x + 70.0 and session.room.generation == 1:
 			seen.moved = true
 		if client.percent == 12.0:
 			seen.hit = true
@@ -146,22 +144,22 @@ func client_tick() -> bool:
 			check(client.percent == 0.0, "Client observes reset percent during wait")
 		if client.stocks == 2 and client.invulnerability_left > 0.0:
 			seen.protected = true
-		if session.generation == 2:
+		if session.room.generation == 2:
 			check(client.stocks == 3 and client.percent == 0.0 and host.stocks == 3, "Client sees reset rematch")
 			for expected in ["initial", "moved", "hit", "waiting", "protected", "winner", "lobby"]:
 				check(seen.has(expected), "Observed synchronized %s" % expected)
 			session.leave()
 			return true
-	elif session.phase == "result":
+	elif session.phase == session.Phase.RESULT:
 		if not seen.has("winner"):
 			seen.winner = true
 			check(session.arena.result == "P1 WINS" and session.arena.fighters[1].stocks == 0, "Client receives same final winner and elimination")
 			check(session.arena.winner_id == 1 and session.arena.fighters[0].kills == 1, "Client receives result statistics")
 			session.confirm_result()
-	elif session.phase == "lobby":
+	elif session.phase == session.Phase.LOBBY:
 		if seen.has("winner"):
 			seen.lobby = true
-		if not session.ready_states.get(session.multiplayer.get_unique_id(), false):
+		if not session.room.player(session.multiplayer.get_unique_id()).is_ready:
 			session.set_ready(true)
 	return false
 

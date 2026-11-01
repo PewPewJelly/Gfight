@@ -41,6 +41,8 @@ var eliminated_frame: int = -1
 ## Presentation only: own fighter shows the ▼나 marker, start countdown enlarges the tag.
 var is_local: bool = false
 var tag_emphasis: bool = false
+## Training dummy: never receives input and is tagged 허수아비 instead of P<n>.
+var is_dummy: bool = false
 var attacks: Dictionary = {
 	"forward": preload("res://resources/basic_attack.tres"),
 	"up": preload("res://resources/up_attack.tres"),
@@ -250,7 +252,8 @@ func _draw() -> void:
 	draw_line(Vector2(0, -10), Vector2(facing * 15, -10), Color.WHITE, 3.0)
 	var tag_size := 28 if tag_emphasis else 16
 	var tag_top := -HALF_SIZE.y - 8.0
-	draw_string(ThemeDB.fallback_font, Vector2(-40, tag_top), "P%d" % player_slot, HORIZONTAL_ALIGNMENT_CENTER, 80, tag_size, tint if tag_emphasis else Color.WHITE)
+	var tag := UiStyle.DUMMY if is_dummy else "P%d" % player_slot
+	draw_string(ThemeDB.fallback_font, Vector2(-60, tag_top), tag, HORIZONTAL_ALIGNMENT_CENTER, 120, tag_size, tint if tag_emphasis else Color.WHITE)
 	if is_local:
 		draw_string(ThemeDB.fallback_font, Vector2(-40, tag_top - tag_size - 2.0), UiStyle.ME_MARK, HORIZONTAL_ALIGNMENT_CENTER, 80, 18, tint.lightened(0.3))
 	if attack_cooldown > movement.attack_cooldown - 0.12:

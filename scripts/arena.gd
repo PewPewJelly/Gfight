@@ -4,6 +4,8 @@ extends Node2D
 signal match_finished(winner_id: int)
 signal snapshot_ready(state: Dictionary)
 var participant_ids: Array[int] = [1, 2]
+## Participants without a player (training dummy): no input, neutral look.
+var dummy_ids: Array[int] = []
 var standalone: bool = true
 var authoritative: bool = true
 var input_provider: Callable
@@ -53,7 +55,8 @@ func _ready() -> void:
 		fighter.player_id = participant_ids[id]
 		fighter.player_slot = id + 1
 		fighter.self_tick = false
-		fighter.tint = UiStyle.slot_color(id + 1)
+		fighter.is_dummy = dummy_ids.has(fighter.player_id)
+		fighter.tint = UiStyle.DUMMY_COLOR if fighter.is_dummy else UiStyle.slot_color(id + 1)
 		fighter.is_local = fighter.player_id == local_player_id
 		fighter.stock_lost.connect(_on_stock_lost)
 		if id == 1:
