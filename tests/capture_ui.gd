@@ -92,7 +92,7 @@ func run() -> void:
 	player.reset_round(Vector2(560, 334))
 	dummy.reset_round(Vector2(615, 334))
 	player.facing = 1.0
-	player.simulate(1.0 / 60.0, 16)
+	player.simulate(1.0 / 60.0, Fighter.INPUT_RIGHT | Fighter.INPUT_ATTACK)
 	arena._resolve_attacks()
 	dummy.percent = 48.0
 	await capture("14_training_hit_dummy")
