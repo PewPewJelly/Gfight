@@ -7,14 +7,16 @@ enum LifeState { ACTIVE, WAITING, ELIMINATED }
 ## Input mask bits. Key arrays below use the same order, so key index i sets bit 1 << i.
 const INPUT_LEFT := 1
 const INPUT_RIGHT := 2
-const INPUT_JUMP := 4
+## Up only aims attacks and skills; it does not jump.
+const INPUT_UP := 4
 const INPUT_DOWN := 8
 const INPUT_ATTACK := 16
 const INPUT_SKILL := 32
-const INPUT_ALL := 63
-## Keys: left, right, jump, down, attack, skill. P2 is the local two-player test helper.
-const P1_KEYS: Array[Key] = [KEY_A, KEY_D, KEY_W, KEY_S, KEY_J, KEY_K]
-const P2_KEYS: Array[Key] = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_PERIOD, KEY_SLASH]
+const INPUT_JUMP := 64
+const INPUT_ALL := 127
+## Keys: left, right, up, down, attack, skill, jump. P2 is the local two-player test helper.
+const P1_KEYS: Array[Key] = [KEY_A, KEY_D, KEY_W, KEY_S, KEY_J, KEY_K, KEY_SPACE]
+const P2_KEYS: Array[Key] = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_PERIOD, KEY_SLASH, KEY_COMMA]
 const DEFAULT_MOVEMENT := preload("res://resources/movement_settings.tres")
 const HALF_SIZE := Vector2(18, 26)
 
@@ -176,7 +178,7 @@ func _physics_process(delta: float) -> void:
 	if self_tick:
 		simulate(delta, read_keyboard(controls))
 
-## Reads one local player's keys (left, right, jump, down, attack, skill) into an input mask.
+## Reads one local player's keys (left, right, up, down, attack, skill, jump) into an input mask.
 static func read_keyboard(keys: Array[Key]) -> int:
 	var mask := 0
 	for index in range(keys.size()):
@@ -185,9 +187,10 @@ static func read_keyboard(keys: Array[Key]) -> int:
 	return mask & INPUT_ALL
 
 ## Move slot for an attack or skill press (GDD/characters/character-template.md §6):
-## up > down > side; no direction counts as up; only up and down split by ground/air.
+## up > down > side; no direction is the same as up; only up and down split by ground/air.
+## Slot names are input directions: an "up" move may hit anywhere its AttackData says.
 static func move_slot(mask: int, airborne: bool) -> CharacterDef.Slot:
-	var up := (mask & INPUT_JUMP) != 0
+	var up := (mask & INPUT_UP) != 0
 	var down := (mask & INPUT_DOWN) != 0
 	var side := (mask & (INPUT_LEFT | INPUT_RIGHT)) != 0
 	if down and not up:
@@ -243,7 +246,7 @@ func simulate(delta: float, mask: int) -> void:
 		var attack_pressed := attack_down and not attack_was_down
 		var skill_pressed := skill_down and not skill_was_down
 		if (attack_pressed or skill_pressed) and attack_cooldown <= 0.0:
-			# W on the ground jumps on the same press, so W+attack is already an air move.
+			# Jumping on the same frame makes it an air move.
 			# A basic attack wins when both buttons are pressed on the same frame.
 			_start_move(move_slot(mask, jumped or not on_ground), not attack_pressed)
 		# S with an attack or skill picks a downward move without also dropping through.

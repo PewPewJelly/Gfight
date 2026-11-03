@@ -256,9 +256,9 @@ func _spawn_location(fighter: Fighter) -> Vector2:
 func _update_hud() -> void:
 	if hud == null:
 		return
-	var instructions := "A/D move · W jump · S drop · J attack · K skill (+W/S/A/D picks the slot)"
+	var instructions := "A/D move · Space jump · S drop · J attack · K skill (W/S/A/D aim)"
 	if standalone:
-		instructions += " | P2: Arrows + . attack + / skill | R restart"
+		instructions += " | P2: Arrows + , jump + . attack + / skill | R restart"
 	var lines := PackedStringArray([instructions])
 	for fighter in fighters:
 		var status := ""
