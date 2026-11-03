@@ -211,6 +211,13 @@ Windows에서는 전체 테스트를 한 번에 실행할 수 있다.
 .\tests\run_checks.ps1 -GodotPath 'Godot 실행파일의 절대 경로'
 ```
 
+### 검증 결과 (2026-11-03, 캐릭터별 값·5칸 슬롯·스킬·점프 키 분리)
+
+- Godot 4.7.2 Linux headless: `--import`, combat_test, gameplay_test, ui_flow_test, network_peer(호스트·클라이언트), lobby_peer(호스트·클라이언트) 모두 실패 0건, 오류 줄 없음.
+- gameplay_test 10회 반복 실행: 모두 실패 0건.
+- lobby_peer 호스트의 "Room update from non-host ... ignored" 경고는 테스트가 일부러 보내는 잘못된 요청이며 변경 전 코드에서도 같다.
+- capture_ui·lobby_peer 등 나머지 스크립트는 `--check-only` 문법 확인만 했다(캡처는 화면 장치가 필요해 실행하지 않음).
+
 ### 검증 결과 (2026-10-27, Docs 기반 프로토타입)
 
 - Godot 4.7.2 Linux headless: `--import`, combat_test, gameplay_test, ui_flow_test, network_peer(호스트·클라이언트), lobby_peer(호스트·클라이언트) 모두 실패 0건, 오류 줄 없음.
