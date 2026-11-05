@@ -67,15 +67,41 @@ func restore_settings() -> void:
 func check_main_menu() -> void:
 	var menu: Control = router.current
 	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Game opens on the main menu")
-	check(menu.play_button.text == UiStyle.MENU_PLAY and not menu.play_button.disabled, "[게임하기] is available")
-	check(menu.guidebook_button.disabled and menu.settings_button.disabled, "가이드북 / 설정 are not built yet")
-	describe("메인 메뉴", [
-		"제목: %s, 버전 표시: %s" % [menu.title_label.text, menu.version_label.text],
-		"버튼: [%s] [%s](비활성, 툴팁 \"%s\") [%s](비활성) [%s]" % [menu.play_button.text, menu.guidebook_button.text,
-			menu.guidebook_button.tooltip_text, menu.settings_button.text, menu.quit_button.text],
-	])
-	menu.play_button.pressed.emit()
+	check(menu.item_text(menu.Item.PLAY) == UiStyle.MAIN_ITEM_PLAY and menu.selected == menu.Item.PLAY, "PLAY is shown and selected first")
+	check(menu.is_item_available(menu.Item.PLAY), "PLAY is available")
+	check(not menu.is_item_available(menu.Item.GUIDEBOOK) and not menu.is_item_available(menu.Item.SETTINGS), "GUIDEBOOK / SETTINGS are not built yet")
+	check(menu.hint_title.text == UiStyle.MAIN_HINT_PLAY, "PLAY shows the Start a Match hint")
+	# Keyboard: ↓ moves down and wraps, ↑ moves back.
+	press_action(&"ui_down")
+	check(menu.selected == menu.Item.GUIDEBOOK and menu.hint_title.text == UiStyle.MAIN_HINT_GUIDEBOOK, "Down selects GUIDEBOOK")
+	press_action(&"ui_accept")
 	await frames(1)
+	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Enter on GUIDEBOOK stays on the main menu")
+	press_action(&"ui_down")
+	press_action(&"ui_down")
+	check(menu.selected == menu.Item.PLAY, "Down from SETTINGS wraps to PLAY")
+	press_action(&"ui_up")
+	check(menu.selected == menu.Item.SETTINGS, "Up from PLAY wraps to SETTINGS")
+	press_action(&"ui_down")
+	await frames(1)
+	describe("메인 메뉴", [
+		"왼쪽: 흰 패널 + 세로 제목 %s, 오른쪽: 노란 그라데이션" % menu.title_label.text,
+		"메뉴(9도 기울임): %s / %s / %s, 선택 항목은 검은 삼각형 + 흰 글자 + 노란 마지막 글자" % [
+			menu.item_text(menu.Item.PLAY), menu.item_text(menu.Item.GUIDEBOOK), menu.item_text(menu.Item.SETTINGS)],
+		"오른쪽 아래: \"%s\" / \"%s\" / [Enter] Confirm [Esc] Close" % [menu.hint_title.text, menu.hint_sub.text],
+	])
+	press_action(&"ui_accept")
+	await frames(1)
+
+func press_action(action: StringName) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	root.push_input(event)
+	var release := InputEventAction.new()
+	release.action = action
+	release.pressed = false
+	root.push_input(release)
 
 # 게임하기 / 방 참여 ------------------------------------------------------------------
 

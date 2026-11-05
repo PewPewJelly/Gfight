@@ -21,7 +21,7 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 
 | 화면 | 파일 | 내용 |
 |---|---|---|
-| 메인 메뉴 | `scenes/ui/main_menu_screen.tscn` | [게임하기] [가이드북] [설정] [게임 종료], 버전. 가이드북·설정은 문서가 없어 비활성(툴팁 "준비 중입니다.") |
+| 메인 메뉴 | `scenes/ui/main_menu_screen.tscn` | Figma "S1 Main Menu"(2026-11-05) 적용. 1920×1080 디자인을 창에 맞춰 축소. 노란 그라데이션(GradientTexture2D)·점무늬·흰 왼쪽 패널·검은 띠·세로 제목 GFIGHT(그림은 `assets/main_menu/`). 메뉴 PLAY / GUIDEBOOK / SETTINGS를 9도 기울여 표시, 선택 항목은 검은 삼각형+흰 글자+노란 마지막 글자. ↑/↓ 이동, Enter 확인, Esc 게임 종료, 마우스는 올리면 선택·클릭하면 확인. 가이드북·설정은 화면이 없어 선택만 되고 확인은 무시. 오른쪽 아래 명령 안내(Start a Match, Enter/Esc) |
 | 게임하기 (SYS-01) | `scenes/ui/start_game_screen.tscn` | 실전(칼)·훈련장(과녁), 실전 hover/클릭 시 [방 참여][방 생성], 방 주소 팝업(형식 오류·접속 실패 5종), 토스트 |
 | 대기방 (SYS-02) | `scenes/ui/lobby_screen.tscn` + `scenes/ui/lobby/` | 1920×1080 기울어진 무대(창 크기에 맞춰 축소·가운데), 내 캐릭터·카드·준비/시작 버튼, 탭 [방][캐릭터][설정], 참가자 카드·⋯ 메뉴(프로필·음소거·강제 퇴장), 말풍선 채팅, 방 주소 팝오버·복사, 준비 화살표, 모달, 토스트 |
 | 경기·결과 | `scenes/ui/match_screen.tscn` | 기존 S3 HUD(`match_hud.gd`)와 S4 결과(`result_screen.gd`)를 한 화면에. 허수아비는 회색·"허수아비" 표시 |
@@ -34,6 +34,7 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 
 - 해상도: Docs/02 결정 1은 게임 전체 1920×1080이지만 경기장 좌표가 1280×720 기준이라 프로젝트 설정은 그대로 두고, 대기방 무대만 1920×1080으로 그려 창에 맞게 축소했다.
 - 메인 메뉴(SYS-00) 명세가 없어 최소 구성만 만들었다.
+- 메인 메뉴 Figma 적용 임시값·가정 (2026-11-05): 왼쪽 사진 자리는 비워 둠(사용 여부 미정). 선택이 GUIDEBOOK·SETTINGS로 옮겨 가도 글자 크기는 그대로이고, 검은 삼각형만 해당 단어 크기에 맞춰 늘림. GUIDEBOOK·SETTINGS 안내 문구("Read the Guide", "Change Settings", "… · 준비 중")는 임시. Esc는 게임 종료(옛 [게임 종료] 버튼 대체). 버전 표시는 디자인에 없어 뺐음. 폰트: Barlow Condensed, Noto Sans KR(OFL, `resources/fonts/files/`).
 - 훈련장 허수아비: 플레이어 id 2, 목숨 3, 입력 0, 회색(`UiStyle.DUMMY_COLOR`). 허수아비가 이기면 "허수아비 승리!". 치트 기능(목숨·텔레포트 조절)은 사용자 요청대로 만들지 않았다.
 - Docs/00 §3.8의 카탈로그·`MatchSetup` 세부 필드가 없어 `ContentCatalog`(characters, maps), `MatchSetup`(generation, room_mode, map, participants, characters, dummy_ids)로 정했다.
 - 닉네임 최대 10자(02 결정 18이 00의 20자보다 우선), 방 이름 12자, 채팅 40자·0.5초 간격, 말풍선 3초.

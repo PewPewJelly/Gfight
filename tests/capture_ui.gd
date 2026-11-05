@@ -28,7 +28,10 @@ func run() -> void:
 	router = load("res://main.tscn").instantiate()
 	root.add_child(router)
 	await capture("01_main_menu")
-	router.current.play_button.pressed.emit()
+	router.current.select(router.current.Item.SETTINGS)
+	await capture("01b_main_menu_settings")
+	router.current.select(router.current.Item.PLAY)
+	router.current.confirm()
 	await process_frame
 	var start: Control = router.current
 	start.fade.color.a = 0.0
