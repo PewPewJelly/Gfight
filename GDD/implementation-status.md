@@ -6,12 +6,13 @@ Godot 4.7.2로 `project.godot`을 열고 F5를 누른다. 첫 화면은 메인 �
 화면 흐름과 대기방은 `Docs/00_System_Context.md`, `Docs/01-start-game-spec.md`, `Docs/02-lobby-spec.md`(2026-10-27 프로토타입)를 따른다.
 Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scenes-v2.pdf` 동작을 그대로 쓴다.
 
-- 같은 프로젝트를 두 번 실행한다. 첫 창: **게임하기 → 실전 → 방 생성**. 두 번째 창: **게임하기 → 실전 → 방 참여** →
+- 같은 프로젝트를 두 번 실행한다. 첫 창: **PLAY → ONLINE → 방 생성**. 두 번째 창: **PLAY → ONLINE → 방 참여** →
   주소 `IP:포트`(처음 값은 이 컴퓨터 IP:27840, 이후 마지막 성공 주소) → **확인**(Enter).
 - 대기방에서 참가자가 준비 버튼(빨간 X → 회색 V)을 누르고, 2명 이상 + 참가자 전원 준비이면 호스트의 ▶ 시작 버튼이 켜진다.
-- **게임하기 → 훈련장**: 혼자 들어가는 대기방. ▶가 항상 켜져 있고, 경기에 회색 허수아비(목숨 3, 입력 없음)가 함께 나온다.
+- **PLAY → TRAINING(훈련장)**: 혼자 들어가는 대기방. ▶가 항상 켜져 있고, 경기에 회색 허수아비(목숨 3, 입력 없음)가 함께 나온다.
 - 경기: 3초 카운트다운 뒤 WASD/J로 자기 플레이어만 조작한다. 결과 화면에서 Enter로 확인, 남은 전원이 확인하면 같은 대기방으로 돌아간다.
-- 방을 떠나는 길은 대기방 (←) → [나가기]뿐이다. 다른 참가자가 있는 호스트가 나가면 방이 닫히고 참가자는 게임하기 화면 토스트를 본다.
+- 방을 떠나는 길은 대기방 (←) → [나가기]뿐이다. 다른 참가자가 있는 호스트가 나가면 방이 닫히고 참가자는 온라인(임시) 화면 토스트를 본다.
+  온라인 방에서 나오면 온라인(임시) 화면으로, 훈련장에서 나오면 메인 메뉴(PLAY 하위 메뉴가 열린 상태)로 돌아간다.
 - 로컬 2인(`Session.local_game()`)은 테스트용으로 남아 있고 메뉴 버튼은 없다. P1 WASD/J, P2 방향키/K.
 
 ## 화면 구현 (Docs 00·01·02)
@@ -21,8 +22,8 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 
 | 화면 | 파일 | 내용 |
 |---|---|---|
-| 메인 메뉴 | `scenes/ui/main_menu_screen.tscn` | [게임하기] [가이드북] [설정] [게임 종료], 버전. 가이드북·설정은 문서가 없어 비활성(툴팁 "준비 중입니다.") |
-| 게임하기 (SYS-01) | `scenes/ui/start_game_screen.tscn` | 실전(칼)·훈련장(과녁), 실전 hover/클릭 시 [방 참여][방 생성], 방 주소 팝업(형식 오류·접속 실패 5종), 토스트 |
+| 메인 메뉴 | `scenes/ui/main_menu_screen.tscn` | Figma "S1 Main Menu"(2026-11-05) 적용. 1920×1080 디자인을 창에 맞춰 축소. 노란 그라데이션(GradientTexture2D)·점무늬·흰 왼쪽 패널·검은 띠·세로 제목 GFIGHT(그림은 `assets/main_menu/`). 메뉴 PLAY / GUIDEBOOK / SETTINGS를 9도 기울여 표시, 선택 항목은 검은 삼각형+흰 글자+노란 마지막 글자. ↑/↓ 이동, Enter 확인, Esc 게임 종료, 마우스는 올리면 선택·클릭하면 확인. 가이드북·설정은 화면이 없어 선택만 되고 확인은 무시. 오른쪽 아래 명령 안내(Start a Match, Enter/Esc). 왼쪽에 인물 사진(`assets/main_menu/player_photo.webp`, 흰 패널 모양으로 잘림). 흰 패널·검은 띠는 위아래로 늘려 세로로 긴 창에서도 끊기지 않음. 처음 실행 때 한 번 GFIGHT가 위로(0.6초), 사진이 오른쪽에서 왼쪽으로(0.59초) 들어옴. 값은 `main_menu_screen.gd`의 `intro_*` 내보내기 변수. 항목이 선택될 때마다 검은 삼각형이 밑변에서 위로 0.09초 동안 자라나고(`wedge_grow_duration`), 동시에 노란 사선 띠가 글자 안에서만 왼쪽→오른쪽으로 0.15초 동안 훑고 마지막 글자를 노랗게 남김(`resources/shaders/menu_sweep.gdshader`, `sweep_*` 변수). 처음 PLAY는 시작 애니메이션의 제목이 다 올라간 뒤 재생. **PLAY 하위 메뉴**(Figma "S1 Main Menu - Play state", 2026-11-05): PLAY를 확인하면 PLAY 오른쪽 위에 찢긴 구멍 2개(`assets/main_menu/play_hole_*.svg`)로 ONLINE / 온라인(위), TRAINING / 훈련장(아래)이 나타남. 선택 항목은 노란 글자+▶, GUIDEBOOK·SETTINGS는 35%로 흐림, 안내는 "Choose a Mode" / Esc Back. ↑/↓ 이동, Enter 확인, Esc 닫기, 마우스는 올리면 선택·클릭하면 확인, PLAY를 다시 누르면 닫힘. ONLINE → 온라인(임시) 화면, TRAINING → 바로 훈련장 대기방 |
+| 온라인 (임시) | `scenes/ui/online_screen.tscn` | **임시 화면.** 온라인 다음 화면이 아직 없어 넣음. 옛 게임하기(SYS-01) 화면의 온라인 기능을 그대로 옮김: [방 생성], [방 참여] → 방 주소 팝업(형식 오류·접속 실패 5종), 방 닫힘 등 토스트. (←)/Esc는 메인 메뉴(PLAY 하위 메뉴 열림)로. 옛 게임하기 화면(`start_game_screen`)은 2026-11-05 삭제 |
 | 대기방 (SYS-02) | `scenes/ui/lobby_screen.tscn` + `scenes/ui/lobby/` | 1920×1080 기울어진 무대(창 크기에 맞춰 축소·가운데), 내 캐릭터·카드·준비/시작 버튼, 탭 [방][캐릭터][설정], 참가자 카드·⋯ 메뉴(프로필·음소거·강제 퇴장), 말풍선 채팅, 방 주소 팝오버·복사, 준비 화살표, 모달, 토스트 |
 | 경기·결과 | `scenes/ui/match_screen.tscn` | 기존 S3 HUD(`match_hud.gd`)와 S4 결과(`result_screen.gd`)를 한 화면에. 허수아비는 회색·"허수아비" 표시 |
 
@@ -34,6 +35,8 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 
 - 해상도: Docs/02 결정 1은 게임 전체 1920×1080이지만 경기장 좌표가 1280×720 기준이라 프로젝트 설정은 그대로 두고, 대기방 무대만 1920×1080으로 그려 창에 맞게 축소했다.
 - 메인 메뉴(SYS-00) 명세가 없어 최소 구성만 만들었다.
+- PLAY 하위 메뉴 임시값·가정 (2026-11-05): Figma는 정지 화면이라 여는 동작은 임시로 정함(구멍마다 0.85배→1배로 0.12초 튀어나오며 나타남, 두 번째는 0.04초 늦게, `submenu_pop_*` 변수). 처음 선택은 위 항목 ONLINE. 안내 작은 글씨는 Figma의 "게임하기 · 방 참여 / 훈련장" 대신 바뀐 이름에 맞춰 "게임하기 · 온라인 / 훈련장"(PLAY 선택 때 안내도 "실전"→"온라인"). TRAINING의 ▶ 위치는 ONLINE과 같은 상대 위치. 구멍 안쪽 그림자(Figma 내부 그림자)는 검은 바탕에서 보이지 않아 SVG에서 뺌. 온라인(임시) 화면은 옛 게임하기 화면의 짙은 남색 기본 UI를 그대로 씀.
+- 메인 메뉴 Figma 적용 임시값·가정 (2026-11-05): 시작 애니메이션은 Figma 프로토타입(2초 반복)에서 들어오는 구간만 가져와 실행 때 한 번만 재생. 선택이 GUIDEBOOK·SETTINGS로 옮겨 가도 글자 크기는 그대로이고, 검은 삼각형만 해당 단어 크기에 맞춰 늘림. GUIDEBOOK·SETTINGS 안내 문구("Read the Guide", "Change Settings", "… · 준비 중")는 임시. Esc는 게임 종료(옛 [게임 종료] 버튼 대체). 버전 표시는 디자인에 없어 뺐음. 폰트: Barlow Condensed, Noto Sans KR(OFL, `resources/fonts/files/`).
 - 훈련장 허수아비: 플레이어 id 2, 목숨 3, 입력 0, 회색(`UiStyle.DUMMY_COLOR`). 허수아비가 이기면 "허수아비 승리!". 치트 기능(목숨·텔레포트 조절)은 사용자 요청대로 만들지 않았다.
 - Docs/00 §3.8의 카탈로그·`MatchSetup` 세부 필드가 없어 `ContentCatalog`(characters, maps), `MatchSetup`(generation, room_mode, map, participants, characters, dummy_ids)로 정했다.
 - 닉네임 최대 10자(02 결정 18이 00의 20자보다 우선), 방 이름 12자, 채팅 40자·0.5초 간격, 말풍선 3초.
@@ -174,7 +177,7 @@ godot --headless --path . --script res://tests/network_peer.gd -- client
 
 대기방 기능(입장 알림·닉네임·채팅과 0.5초 제한·참가자의 방 설정 거부·강제 퇴장과 재입장·방 닫기·경기 중 참가 거부)은
 `tests/lobby_peer.gd`(포트 27848)로 같은 방식으로 검사한다.
-`ui_flow_test.gd`는 메인 메뉴 → 게임하기 → 방 참여 팝업 → 온라인 대기방 → 경기 → 결과 → 훈련장 대기방 → 허수아비 경기 → 결과를 지나며
+`ui_flow_test.gd`는 메인 메뉴 → PLAY 하위 메뉴 → 온라인(임시) 화면 → 방 참여 팝업 → 온라인 대기방 → 경기 → 결과 → 훈련장 대기방 → 허수아비 경기 → 결과를 지나며
 각 주요 장면을 "[장면] ..." 텍스트로 출력한다.
 화면 캡처는 창 모드로 `--script res://tests/capture_ui.gd`를 실행하면 `.godot/test-output`에 저장된다(`-- out=절대경로`로 바꿀 수 있음).
 
@@ -185,6 +188,11 @@ Windows에서는 전체 테스트를 한 번에 실행할 수 있다.
 ```powershell
 .\tests\run_checks.ps1 -GodotPath 'Godot 실행파일의 절대 경로'
 ```
+
+### 검증 결과 (2026-11-05, PLAY 하위 메뉴 + 온라인 임시 화면)
+
+- Godot 4.7.2 Linux headless: `--import`, combat_test, gameplay_test, ui_flow_test, network_peer(호스트·클라이언트), lobby_peer(호스트·클라이언트) 모두 실패 0건, 스크립트 오류 줄 없음.
+- Xvfb + OpenGL로 capture_ui 17장을 찍어 PLAY 하위 메뉴가 Figma "S1 Main Menu - Play state"와 같은 위치·색인지 확인했다.
 
 ### 검증 결과 (2026-10-27, Docs 기반 프로토타입)
 

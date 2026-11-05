@@ -1,10 +1,8 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://scripts/ui/start_game_screen.gd" id="1_script"]
-[ext_resource type="Texture2D" path="res://assets/start_game/sword.svg" id="2_sword"]
-[ext_resource type="Texture2D" path="res://assets/start_game/target.svg" id="3_target"]
+[ext_resource type="Script" path="res://scripts/ui/online_screen.gd" id="1_script"]
 
-[node name="StartGameScreen" type="Control"]
+[node name="OnlineScreen" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -48,128 +46,67 @@ focus_mode = 0
 theme_override_font_sizes/font_size = 22
 text = "<"
 
-[node name="LocationLabel" type="Label" parent="TopBar/TopBarRow"]
+[node name="TitleLabel" type="Label" parent="TopBar/TopBarRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
 theme_override_font_sizes/font_size = 26
 
-[node name="ModeRow" type="HBoxContainer" parent="."]
+[node name="TempTag" type="PanelContainer" parent="TopBar/TopBarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="TempTagLabel" type="Label" parent="TopBar/TopBarRow/TempTag"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5529412, 0.60784316, 0.6901961, 1)
+theme_override_font_sizes/font_size = 16
+
+[node name="Center" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -500.0
-offset_top = -180.0
-offset_right = 500.0
-offset_bottom = 180.0
+offset_left = -320.0
+offset_top = -90.0
+offset_right = 320.0
+offset_bottom = 90.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 160
-
-[node name="RealArea" type="Control" parent="ModeRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(560, 360)
-layout_mode = 2
-mouse_filter = 1
-
-[node name="RealButton" type="Button" parent="ModeRow/RealArea"]
-unique_name_in_owner = true
-layout_mode = 0
-offset_top = 20.0
-offset_right = 280.0
-offset_bottom = 340.0
-focus_mode = 0
-flat = true
-
-[node name="RealColumn" type="VBoxContainer" parent="ModeRow/RealArea/RealButton"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 36
 alignment = 1
 
-[node name="RealIcon" type="TextureRect" parent="ModeRow/RealArea/RealButton/RealColumn"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 240)
-layout_mode = 2
-size_flags_horizontal = 4
-mouse_filter = 2
-texture = ExtResource("2_sword")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="RealLabel" type="Label" parent="ModeRow/RealArea/RealButton/RealColumn"]
+[node name="NoteLabel" type="Label" parent="Center"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
+theme_override_colors/font_color = Color(0.5529412, 0.60784316, 0.6901961, 1)
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
+autowrap_mode = 3
 
-[node name="RealSubMenu" type="VBoxContainer" parent="ModeRow/RealArea"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 0
-offset_left = 296.0
-offset_top = 130.0
-offset_right = 496.0
-offset_bottom = 230.0
-theme_override_constants/separation = 12
-
-[node name="JoinRoomButton" type="Button" parent="ModeRow/RealArea/RealSubMenu"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(200, 44)
+[node name="ButtonRow" type="HBoxContainer" parent="Center"]
 layout_mode = 2
-focus_mode = 0
-theme_override_font_sizes/font_size = 18
-
-[node name="CreateRoomButton" type="Button" parent="ModeRow/RealArea/RealSubMenu"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(200, 44)
-layout_mode = 2
-focus_mode = 0
-theme_override_font_sizes/font_size = 18
-
-[node name="TrainingButton" type="Button" parent="ModeRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(280, 320)
-layout_mode = 2
-size_flags_vertical = 4
-focus_mode = 0
-flat = true
-
-[node name="TrainingColumn" type="VBoxContainer" parent="ModeRow/TrainingButton"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 24
 alignment = 1
 
-[node name="TrainingIcon" type="TextureRect" parent="ModeRow/TrainingButton/TrainingColumn"]
+[node name="CreateRoomButton" type="Button" parent="Center/ButtonRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 240)
+custom_minimum_size = Vector2(220, 64)
 layout_mode = 2
-size_flags_horizontal = 4
-mouse_filter = 2
-texture = ExtResource("3_target")
-expand_mode = 1
-stretch_mode = 5
+focus_neighbor_right = NodePath("../JoinRoomButton")
+theme_override_font_sizes/font_size = 22
 
-[node name="TrainingLabel" type="Label" parent="ModeRow/TrainingButton/TrainingColumn"]
+[node name="JoinRoomButton" type="Button" parent="Center/ButtonRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 64)
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
-horizontal_alignment = 1
+focus_neighbor_left = NodePath("../CreateRoomButton")
+theme_override_font_sizes/font_size = 22
 
 [node name="Toast" type="PanelContainer" parent="."]
 unique_name_in_owner = true

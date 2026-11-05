@@ -1,0 +1,7 @@
+[gd_resource type="FontVariation" format=3]
+
+[ext_resource type="FontFile" path="res://resources/fonts/files/BarlowCondensed-Black.ttf" id="1_barlow"]
+
+[resource]
+base_font = ExtResource("1_barlow")
+spacing_glyph = -7
