@@ -14,6 +14,7 @@ const MAX_PLAYERS: int = 4
 var state: ScreenState = ScreenState.IDLE
 var _toast_left: float = 0.0
 var _creating_room_name: String = ""
+var _joining_room_name: String = ""
 
 @onready var back_button: Button = %BackButton
 @onready var refresh_button: Button = %RefreshButton
@@ -134,7 +135,7 @@ func _make_room_card(room: Dictionary) -> PanelContainer:
 	var status := str(room.get("status", "lobby"))
 	join_button.disabled = player_count >= MAX_PLAYERS or status != "lobby"
 	join_button.text = "참여 불가" if join_button.disabled else "참여"
-	join_button.pressed.connect(_join_room.bind(str(room.get("room_id", ""))))
+	join_button.pressed.connect(_join_room.bind(str(room.get("room_id", "")), str(room.get("name", "이름 없는 방"))))
 	row.add_child(join_button)
 	return card
 
@@ -168,10 +169,11 @@ func _on_create_room_pressed() -> void:
 	OnlineClient.create_room(room_name, Session.local_name)
 	_show_toast("공개 방을 만드는 중...")
 
-func _join_room(room_id: String) -> void:
+func _join_room(room_id: String, room_name: String = "") -> void:
 	if state != ScreenState.IDLE or room_id.is_empty():
 		return
 	state = ScreenState.JOINING
+	_joining_room_name = room_name
 	_apply_state()
 	OnlineClient.join_room(room_id, Session.local_name)
 	_show_toast("방에 연결하는 중...")
@@ -196,6 +198,17 @@ func _on_room_state_updated(room_state: Dictionary) -> void:
 		result.room_address = OnlineClient.room_id
 		exit_requested.emit(result)
 		return
+	if state == ScreenState.JOINING and not OnlineClient.local_player_id.is_empty():
+		Session.open_cloud_room(_joining_room_name, room_state)
+		state = ScreenState.LEAVING
+		_apply_state()
+		var result := OnlineExitResult.new()
+		result.route = OnlineExitResult.Route.LOBBY
+		result.room_mode = ScreenTypes.RoomMode.ONLINE
+		result.role = ScreenTypes.Role.CLIENT
+		result.room_address = OnlineClient.room_id
+		exit_requested.emit(result)
+		return
 	state = ScreenState.IDLE
 	_apply_state()
 	_show_toast("대기방 연결 완료")
@@ -203,6 +216,7 @@ func _on_room_state_updated(room_state: Dictionary) -> void:
 func _on_request_failed(message: String) -> void:
 	state = ScreenState.IDLE
 	_creating_room_name = ""
+	_joining_room_name = ""
 	_apply_state()
 	refresh_button.text = "새로고침"
 	_show_toast(message)

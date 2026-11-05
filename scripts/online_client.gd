@@ -6,6 +6,11 @@ signal room_state_updated(state: Dictionary)
 signal connection_changed(connected: bool)
 signal data_received(remote_id: String, message: Variant)
 signal request_failed(message: String)
+signal chat_received(remote_id: String, text: String)
+signal match_started(data: Dictionary)
+signal kicked
+signal lobby_returned
+signal server_error(code: String)
 
 const DEFAULT_HTTP_BASE := "https://gfight-multi-server.gfight-multi-server.workers.dev"
 const DEFAULT_WS_BASE := "wss://gfight-multi-server.gfight-multi-server.workers.dev"
@@ -74,13 +79,33 @@ func set_ready(ready: bool) -> void:
 func set_character(character_id: String) -> void:
 	_send_signal_message({"type": "set_character", "payload": {"character_id": character_id}})
 
-func send_test_input(tick: int, buttons: int) -> void:
-	var packet := JSON.stringify({"type": "input", "tick": tick, "buttons": buttons}).to_utf8_buffer()
+func set_display_name(display_name: String) -> void:
+	_send_signal_message({"type": "set_name", "payload": {"display_name": display_name}})
+
+func update_room(patch: Dictionary) -> void:
+	_send_signal_message({"type": "update_room", "payload": patch})
+
+func send_chat(text: String) -> void:
+	_send_signal_message({"type": "chat", "payload": {"text": text}})
+
+func kick_player(player_id: String) -> void:
+	_send_signal_message({"type": "kick", "payload": {"player_id": player_id}})
+
+func start_match() -> void:
+	_send_signal_message({"type": "start_match", "payload": {}})
+
+func return_lobby() -> void:
+	_send_signal_message({"type": "return_lobby", "payload": {}})
+
+func send_game_packet(message: Dictionary) -> void:
+	var packet := var_to_bytes(message)
 	for remote_id: String in connections:
 		var channel: WebRTCDataChannel = connections[remote_id].channel
 		if channel.get_ready_state() == WebRTCDataChannel.STATE_OPEN:
 			channel.put_packet(packet)
-			_log("input -> %s tick=%d buttons=%d" % [remote_id.left(6), tick, buttons])
+
+func send_test_input(tick: int, buttons: int) -> void:
+	send_game_packet({"type": "input", "tick": tick, "buttons": buttons})
 
 func _process(_delta: float) -> void:
 	socket.poll()
@@ -107,9 +132,15 @@ func _process(_delta: float) -> void:
 			connections[remote_id] = entry
 			_log("DataChannel OPEN <-> %s" % remote_id.left(6))
 		while channel.get_available_packet_count() > 0:
-			var text := channel.get_packet().get_string_from_utf8()
-			_log("data <- %s %s" % [remote_id.left(6), text.left(80)])
-			data_received.emit(remote_id, JSON.parse_string(text))
+			var packet := channel.get_packet()
+			var message: Variant = bytes_to_var(packet)
+			var message_type := ""
+			if message is Dictionary:
+				var message_dict: Dictionary = message
+				message_type = str(message_dict.get("type", ""))
+			if message_type != "input":
+				_log("data <- %s %s" % [remote_id.left(6), str(message).left(80)])
+			data_received.emit(remote_id, message)
 
 func _handle_server_message(text: String) -> void:
 	var parsed: Variant = JSON.parse_string(text)
@@ -128,8 +159,18 @@ func _handle_server_message(text: String) -> void:
 			_sync_mesh(message.get("players", []))
 		"signal":
 			_handle_signal(str(message.get("from_id", "")), message.get("payload", {}))
+		"chat":
+			chat_received.emit(str(message.get("from_id", "")), str(message.get("text", "")))
+		"match_start":
+			match_started.emit(message)
+		"kicked":
+			kicked.emit()
+		"lobby_returned":
+			lobby_returned.emit()
 		"error":
-			_log("server error: %s" % message.get("code", "UNKNOWN"))
+			var code := str(message.get("code", "UNKNOWN"))
+			_log("server error: %s" % code)
+			server_error.emit(code)
 		"pong":
 			pass
 
@@ -209,6 +250,22 @@ func _send_signal_message(value: Dictionary) -> void:
 	if socket.get_ready_state() != WebSocketPeer.STATE_OPEN:
 		return
 	socket.send_text(JSON.stringify(value))
+
+func player_id_for_slot(slot: int) -> String:
+	for value: Variant in room_state.get("players", []):
+		if value is Dictionary:
+			var player: Dictionary = value
+			if int(player.get("slot", 0)) == slot:
+				return str(player.get("player_id", ""))
+	return ""
+
+func slot_for_player_id(player_id: String) -> int:
+	for value: Variant in room_state.get("players", []):
+		if value is Dictionary:
+			var player: Dictionary = value
+			if str(player.get("player_id", "")) == player_id:
+				return int(player.get("slot", 0))
+	return 0
 
 func _on_rooms_received(code: int, data: Variant) -> void:
 	if code != 200 or not data is Dictionary or not data.get("rooms", []) is Array:

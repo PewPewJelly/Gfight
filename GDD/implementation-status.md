@@ -189,6 +189,15 @@ Windows에서는 전체 테스트를 한 번에 실행할 수 있다.
 .\tests\run_checks.ps1 -GodotPath 'Godot 실행파일의 절대 경로'
 ```
 
+### 검증 결과 (2026-11-06, Cloudflare/WebRTC 롤백 경로)
+
+- Godot 4.7.2 Windows: combat, gameplay, rollback, UI flow 검사 실패 0건.
+- 로컬 Room Durable Object에 WebSocket 4명을 연결해 방 설정·채팅·준비·경기 시작·로비 복귀·강퇴를 검증했다.
+- Godot 프로세스 4개가 각각 다른 3명과 WebRTC DataChannel을 열고 입력 패킷을 수신했다.
+- Godot 프로세스 2개가 60틱으로 240틱을 실행한 뒤 같은 상태 해시 `1051696118`을 냈다.
+- 롤백 단위 검사는 과거 상태 복원, 수정 입력 재실행, 같은 상태·입력의 동일 결과를 확인했다.
+- 서로 다른 실제 PC·네트워크와 TURN 경로는 아직 검증하지 않았다.
+
 ### 검증 결과 (2026-11-05, PLAY 하위 메뉴 + 온라인 임시 화면)
 
 - Godot 4.7.2 Linux headless: `--import`, combat_test, gameplay_test, ui_flow_test, network_peer(호스트·클라이언트), lobby_peer(호스트·클라이언트) 모두 실패 0건, 스크립트 오류 줄 없음.

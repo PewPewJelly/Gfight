@@ -3,6 +3,7 @@ extends Node2D
 
 signal match_finished(winner_id: int)
 signal snapshot_ready(state: Dictionary)
+signal tick_completed(state: Dictionary)
 var participant_ids: Array[int] = [1, 2]
 ## Participants without a player (training dummy): no input, neutral look.
 var dummy_ids: Array[int] = []
@@ -10,6 +11,8 @@ var standalone: bool = true
 var authoritative: bool = true
 var input_provider: Callable
 var frame: int = 0
+var simulation_seed: int = 1
+var starting_stocks: int = CombatRules.INITIAL_STOCKS
 @export var rules: CombatRules = preload("res://resources/combat_rules.tres")
 @export var attack: AttackData = preload("res://resources/basic_attack.tres")
 @export var movement: MovementSettings = preload("res://resources/movement_settings.tres")
@@ -29,7 +32,7 @@ var hud: Label
 var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
-	rng.randomize()
+	rng.seed = simulation_seed if simulation_seed != 0 else 1
 	var stage := platforms[0]
 	var lowest_top := platforms[0].position.y
 	for surface in platforms:
@@ -94,6 +97,7 @@ func restart() -> void:
 			push_error("No free start position for P%d" % fighter.player_slot)
 			location = Vector2(platforms[0].get_center().x, platforms[0].position.y - Fighter.HALF_SIZE.y)
 		fighter.reset_round(location)
+		fighter.stocks = starting_stocks
 		fighter.tag_emphasis = countdown_left > 0.0
 		fighter.queue_redraw()
 
@@ -105,6 +109,9 @@ func _physics_process(delta: float) -> void:
 	if not authoritative:
 		_update_hud()
 		return
+	simulate_tick(delta)
+
+func simulate_tick(delta: float) -> void:
 	if countdown_left > 0.0:
 		countdown_left = maxf(0.0, countdown_left - delta)
 		if is_zero_approx(countdown_left):
@@ -129,6 +136,7 @@ func _physics_process(delta: float) -> void:
 			_resolve_attacks()
 	_update_hud()
 	frame += 1
+	tick_completed.emit(snapshot())
 	if frame % 3 == 0:
 		snapshot_ready.emit(snapshot())
 
@@ -256,17 +264,29 @@ func snapshot() -> Dictionary:
 			"respawn": fighter.respawn_left, "hitstun": fighter.hitstun_left,
 			"cooldown": fighter.attack_cooldown, "jumps": fighter.jumps_left,
 			"facing": fighter.facing, "kind": fighter.attack_kind, "visual": fighter.attack_visual,
-			"kills": fighter.kills, "dealt": fighter.dealt_percent, "out": fighter.eliminated_frame})
+			"kills": fighter.kills, "dealt": fighter.dealt_percent, "out": fighter.eliminated_frame,
+			"jump_down": fighter.jump_was_down, "attack_down": fighter.attack_was_down,
+			"down_down": fighter.down_was_down, "attack_requested": fighter.attack_requested,
+			"last_input": fighter.last_input_mask, "last_attacker": fighter.last_attacker_id,
+			"drop": fighter.drop_left})
 	return {"players": players, "ended": ended, "result": result, "winner": winner_id,
-		"countdown": countdown_left, "frame": frame}
+		"countdown": countdown_left, "frame": frame, "rng": rng.state}
 
 func apply_snapshot(state: Dictionary) -> void:
-	if int(state.get("frame", -1)) < frame:
+	_apply_snapshot(state, false)
+
+## Rollback deliberately restores an older frame, unlike ordinary network snapshots.
+func restore_snapshot(state: Dictionary) -> void:
+	_apply_snapshot(state, true)
+
+func _apply_snapshot(state: Dictionary, allow_older: bool) -> void:
+	if not allow_older and int(state.get("frame", -1)) < frame:
 		return
 	frame = state.frame
 	ended = state.ended
 	result = state.result
 	winner_id = state.winner
+	rng.state = int(state.get("rng", rng.state))
 	var emphasis_changed := (countdown_left > 0.0) != (float(state.countdown) > 0.0)
 	countdown_left = state.countdown
 	for data in state.players:
@@ -290,6 +310,13 @@ func apply_snapshot(state: Dictionary) -> void:
 			fighter.kills = data.kills
 			fighter.dealt_percent = data.dealt
 			fighter.eliminated_frame = data.out
+			fighter.jump_was_down = bool(data.get("jump_down", false))
+			fighter.attack_was_down = bool(data.get("attack_down", false))
+			fighter.down_was_down = bool(data.get("down_down", false))
+			fighter.attack_requested = bool(data.get("attack_requested", false))
+			fighter.last_input_mask = int(data.get("last_input", 0))
+			fighter.last_attacker_id = int(data.get("last_attacker", 0))
+			fighter.restore_drop_state(float(data.get("drop", 0.0)))
 			fighter.tag_emphasis = countdown_left > 0.0
 			fighter.visible = fighter.life_state == Fighter.LifeState.ACTIVE
 			fighter.queue_redraw()

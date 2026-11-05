@@ -19,6 +19,11 @@ const CHAT_MAX_LENGTH: int = 40
 const CHAT_MIN_INTERVAL_MSEC: int = 500
 ## Inputs older than this are released (a lost client must not keep running).
 const INPUT_STALE_MSEC: int = 500
+const ROLLBACK_INPUT_DELAY: int = 2
+const ROLLBACK_MAX_TICKS: int = 12
+const ROLLBACK_REDUNDANCY: int = 5
+const ROLLBACK_HASH_INTERVAL: int = 30
+const FIXED_TICK_SECONDS: float = 1.0 / 60.0
 ## Fighter id of the training dummy. Training runs offline, so no real peer can have it.
 const TRAINING_DUMMY_ID: int = 2
 ## Audio defaults (Docs/02 §2.4), shared by the lobby personal tab and the main [설정].
@@ -50,6 +55,14 @@ var local_mode: bool = false
 ## True while the room roster is owned by Cloudflare/WebRTC instead of ENet.
 var cloud_room: bool = false
 var _cloud_room_name: String = ""
+var _cloud_match_id: String = ""
+var _rollback_inputs: Dictionary = {}
+var _rollback_used: Dictionary = {}
+var _rollback_states: Dictionary = {}
+var _rollback_hashes: Dictionary = {}
+var _pending_rollback_tick: int = -1
+var _resimulating: bool = false
+var rollback_count: int = 0
 var local_name: String = PlayerData.DEFAULT_NAME
 var arena: FightArena
 var input_masks: Dictionary = {}
@@ -67,6 +80,12 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(_connection_failed)
 	multiplayer.server_disconnected.connect(_server_left)
 	OnlineClient.room_state_updated.connect(_sync_cloud_room)
+	OnlineClient.chat_received.connect(_on_cloud_chat)
+	OnlineClient.match_started.connect(_on_cloud_match_started)
+	OnlineClient.kicked.connect(_on_cloud_kicked)
+	OnlineClient.lobby_returned.connect(_on_cloud_lobby_returned)
+	OnlineClient.data_received.connect(_on_cloud_data_received)
+	OnlineClient.connection_changed.connect(_on_cloud_connection_changed)
 	_rng.randomize()
 	last_address = str(load_setting("network", "last_address", ""))
 	local_name = PlayerData.clean_name(str(load_setting("player", "name", PlayerData.DEFAULT_NAME)))
@@ -180,13 +199,19 @@ func open_cloud_room(room_name: String, state: Dictionary) -> void:
 func _sync_cloud_room(state: Dictionary) -> void:
 	if not cloud_room or not state.get("players", []) is Array:
 		return
+	var previous_phase := phase
+	var server_in_game := str(state.get("status", "lobby")) == "in_game"
 	var next_room := RoomState.new()
 	next_room.mode = ScreenTypes.RoomMode.ONLINE
-	next_room.phase = Phase.LOBBY
+	next_room.phase = previous_phase if server_in_game and previous_phase in [Phase.PLAYING, Phase.RESULT] else Phase.LOBBY
 	next_room.address = OnlineClient.room_id
-	next_room.name = _cloud_room_name
+	next_room.name = RoomState.clean_name(str(state.get("name", _cloud_room_name)))
 	next_room.max_players = clampi(int(state.get("max_players", MAX_PLAYERS)), RoomState.MIN_PLAYERS, MAX_PLAYERS)
 	next_room.map = catalog.default_map()
+	var map_id := StringName(str(state.get("map_id", next_room.map)))
+	if catalog.is_valid_map(map_id):
+		next_room.map = map_id
+	next_room.stocks = clampi(int(state.get("stocks", CombatRules.INITIAL_STOCKS)), 1, 9)
 	for value: Variant in state.get("players", []):
 		if not value is Dictionary:
 			continue
@@ -199,7 +224,7 @@ func _sync_cloud_room(state: Dictionary) -> void:
 		entry.is_ready = bool(player.get("ready", false))
 		next_room.add_player(entry)
 	room = next_room
-	phase = Phase.LOBBY
+	phase = next_room.phase as Phase
 	changed.emit()
 
 func join_address(text: String, player_name: String = PlayerData.DEFAULT_NAME) -> Error:
@@ -266,9 +291,6 @@ func all_ready() -> bool:
 func can_start() -> bool:
 	if phase != Phase.LOBBY or not is_host() or catalog.characters.is_empty() or catalog.maps.is_empty():
 		return false
-	# Cloud rooms reach the lobby now; starting waits for rollback/WebRTC match synchronization.
-	if cloud_room:
-		return false
 	if training_mode:
 		return true
 	return room.players.size() >= RoomState.MIN_PLAYERS and all_ready()
@@ -276,9 +298,13 @@ func can_start() -> bool:
 func start_game() -> bool:
 	if not can_start():
 		return false
+	if cloud_room:
+		OnlineClient.start_match()
+		return true
 	room.generation += 1
 	var setup := MatchSetup.new()
 	setup.generation = room.generation
+	setup.seed = _rng.randi()
 	setup.room_mode = room.mode
 	setup.map = _resolve_pick(room.map, catalog.maps.size())
 	setup.participants = room.ids()
@@ -371,6 +397,18 @@ func update_room(patch: Dictionary) -> void:
 	if not is_host():
 		push_warning("Only the host can change room settings")
 		return
+	if cloud_room:
+		var cloud_patch: Dictionary = {}
+		if patch.has("name"):
+			cloud_patch.name = RoomState.clean_name(str(patch.name))
+		if patch.has("max_players"):
+			cloud_patch.max_players = int(patch.max_players)
+		if patch.has("map"):
+			cloud_patch.map_id = String(patch.map)
+		if patch.has("stocks"):
+			cloud_patch.stocks = int(patch.stocks)
+		OnlineClient.update_room(cloud_patch)
+		return
 	if _apply_room_patch(patch):
 		_publish_lobby()
 
@@ -407,6 +445,9 @@ func set_display_name(value: String) -> void:
 	save_setting("player", "name", local_name)
 	if phase != Phase.LOBBY:
 		return
+	if cloud_room:
+		OnlineClient.set_display_name(local_name)
+		return
 	if is_host():
 		var me := room.player(my_id())
 		if me != null:
@@ -429,6 +470,9 @@ func _request_name(value: String) -> void:
 func send_chat(text: String) -> void:
 	var clean := _clean_chat(text)
 	if clean.is_empty() or phase != Phase.LOBBY or is_offline():
+		return
+	if cloud_room:
+		OnlineClient.send_chat(clean)
 		return
 	if multiplayer.is_server():
 		_accept_chat(1, clean)
@@ -462,6 +506,11 @@ func _chat(peer_id: int, text: String) -> void:
 
 ## Host removes a participant. Rejoining afterwards is allowed (Docs/02 decision 14).
 func kick(peer_id: int) -> void:
+	if cloud_room and phase == Phase.LOBBY and is_host() and peer_id != my_id():
+		var player_id := OnlineClient.player_id_for_slot(peer_id)
+		if not player_id.is_empty():
+			OnlineClient.kick_player(player_id)
+		return
 	if phase != Phase.LOBBY or is_offline() or not multiplayer.is_server() or peer_id == 1 or not room.has_player(peer_id):
 		return
 	_kicked.rpc_id(peer_id)
@@ -512,10 +561,12 @@ func leave() -> void:
 	confirmed.clear()
 	input_masks.clear()
 	input_times.clear()
+	_reset_rollback()
 	_chat_times.clear()
 	local_mode = false
 	cloud_room = false
 	_cloud_room_name = ""
+	_cloud_match_id = ""
 	changed.emit()
 
 func cancel_join() -> void:
@@ -620,6 +671,65 @@ func _remember_address(address: String) -> void:
 	last_address = address
 	save_setting("network", "last_address", address)
 
+func _on_cloud_chat(remote_id: String, text: String) -> void:
+	if not cloud_room or phase != Phase.LOBBY:
+		return
+	var slot := OnlineClient.slot_for_player_id(remote_id)
+	if slot > 0:
+		chat_received.emit(slot, _clean_chat(text))
+
+func _on_cloud_kicked() -> void:
+	if not cloud_room:
+		return
+	OnlineClient.disconnect_room()
+	leave()
+	toast = UiStyle.KICKED
+	changed.emit()
+
+func _on_cloud_connection_changed(connected: bool) -> void:
+	if connected or not cloud_room or phase == Phase.MENU:
+		return
+	leave()
+	toast = UiStyle.HOST_LOST
+	changed.emit()
+
+func _on_cloud_match_started(data: Dictionary) -> void:
+	if not cloud_room or phase != Phase.LOBBY:
+		return
+	var match_id := str(data.get("match_id", ""))
+	if match_id.is_empty() or match_id == _cloud_match_id or not data.get("players", []) is Array:
+		return
+	_cloud_match_id = match_id
+	var setup := MatchSetup.new()
+	setup.generation = room.generation + 1
+	setup.seed = int(data.get("seed", 1))
+	setup.room_mode = ScreenTypes.RoomMode.ONLINE
+	setup.map = catalog.checked_map(StringName(str(data.get("map_id", room.map))))
+	room.stocks = clampi(int(data.get("stocks", room.stocks)), 1, 9)
+	for value: Variant in data.players:
+		if not value is Dictionary:
+			continue
+		var player: Dictionary = value
+		var slot := int(player.get("slot", 0))
+		if slot < 1 or slot > MAX_PLAYERS:
+			continue
+		setup.participants.append(slot)
+		var character := StringName(str(player.get("character_id", "")))
+		setup.characters[slot] = character if catalog.is_valid_character(character) else catalog.default_character()
+	if setup.participants.size() < RoomState.MIN_PLAYERS:
+		return
+	setup.participants.sort()
+	var wait_seconds := maxf(0.0, float(data.get("start_at_ms", 0)) / 1000.0 - Time.get_unix_time_from_system())
+	if wait_seconds > 0.0:
+		await get_tree().create_timer(minf(wait_seconds, 2.0)).timeout
+	if cloud_room and phase == Phase.LOBBY and _cloud_match_id == match_id:
+		_begin_match(setup.to_dict())
+
+func _on_cloud_lobby_returned() -> void:
+	if not cloud_room:
+		return
+	_back_to_lobby(room.to_dict())
+
 # Match -----------------------------------------------------------------------
 
 @rpc("authority", "call_local", "reliable")
@@ -635,19 +745,26 @@ func _begin_match(setup_data: Dictionary) -> void:
 	confirmed.clear()
 	input_masks.clear()
 	input_times.clear()
+	_reset_rollback()
 	if is_instance_valid(arena):
 		remove_child(arena)
 		arena.queue_free()
 	arena = preload("res://arena.tscn").instantiate()
 	arena.name = "Arena"
 	arena.standalone = false
-	arena.authoritative = is_host()
+	arena.authoritative = cloud_room or is_host()
+	arena.simulation_seed = setup.seed
+	arena.starting_stocks = room.stocks
 	arena.local_player_id = 0 if local_mode else my_id()
 	arena.participant_ids.assign(setup.participants)
 	arena.dummy_ids.assign(setup.dummy_ids)
 	arena.input_provider = input_for
 	add_child(arena)
-	if arena.authoritative:
+	if cloud_room:
+		arena.tick_completed.connect(_on_cloud_tick_completed)
+		arena.match_finished.connect(_finished)
+		_rollback_states[0] = arena.snapshot().duplicate(true)
+	elif arena.authoritative:
 		arena.snapshot_ready.connect(_broadcast_snapshot)
 		arena.match_finished.connect(_finished)
 	else:
@@ -661,6 +778,16 @@ func _begin_match(setup_data: Dictionary) -> void:
 func submit_local_input(mask: int) -> void:
 	if phase != Phase.PLAYING:
 		return
+	if cloud_room and is_instance_valid(arena):
+		var tick := arena.frame + ROLLBACK_INPUT_DELAY
+		_store_rollback_input(tick, my_id(), mask & 63, true)
+		var recent: Array[Dictionary] = []
+		for past_tick: int in range(maxi(0, tick - ROLLBACK_REDUNDANCY + 1), tick + 1):
+			var values: Dictionary = _rollback_inputs.get(past_tick, {})
+			if values.has(my_id()):
+				recent.append({"tick": past_tick, "buttons": int(values[my_id()])})
+		OnlineClient.send_game_packet({"type": "input", "latest_tick": tick, "recent": recent})
+		return
 	if is_host():
 		_store_input(my_id(), mask)
 	else:
@@ -673,10 +800,18 @@ func _submit_input(mask: int, round_generation: int) -> void:
 		_store_input(sender, mask)
 
 func _store_input(id: int, mask: int) -> void:
-	input_masks[id] = mask & 31
+	input_masks[id] = mask & 63
 	input_times[id] = Time.get_ticks_msec()
 
 func input_for(id: int) -> int:
+	if cloud_room and is_instance_valid(arena):
+		var tick := arena.frame
+		var values: Dictionary = _rollback_inputs.get(tick, {})
+		var mask := int(values.get(id, _predicted_input(id, tick)))
+		var used: Dictionary = _rollback_used.get(tick, {})
+		used[id] = mask
+		_rollback_used[tick] = used
+		return mask
 	if local_mode:
 		var keys: Array[Key] = [KEY_A, KEY_D, KEY_W, KEY_J]
 		if id == 2:
@@ -685,6 +820,106 @@ func input_for(id: int) -> int:
 	if Time.get_ticks_msec() - int(input_times.get(id, 0)) > INPUT_STALE_MSEC:
 		return 0
 	return int(input_masks.get(id, 0))
+
+func _reset_rollback() -> void:
+	_rollback_inputs.clear()
+	_rollback_used.clear()
+	_rollback_states.clear()
+	_rollback_hashes.clear()
+	_pending_rollback_tick = -1
+	_resimulating = false
+	rollback_count = 0
+
+func _predicted_input(id: int, tick: int) -> int:
+	for previous: int in range(tick - 1, maxi(-1, tick - ROLLBACK_MAX_TICKS - 1), -1):
+		var values: Dictionary = _rollback_inputs.get(previous, {})
+		if values.has(id):
+			return int(values[id])
+	return 0
+
+func _store_rollback_input(tick: int, id: int, mask: int, actual: bool) -> void:
+	if tick < 0 or id < 1 or id > MAX_PLAYERS:
+		return
+	var values: Dictionary = _rollback_inputs.get(tick, {})
+	values[id] = mask & 63
+	_rollback_inputs[tick] = values
+	if actual and is_instance_valid(arena) and tick < arena.frame:
+		var used: Dictionary = _rollback_used.get(tick, {})
+		if used.has(id) and int(used[id]) != (mask & 63):
+			if tick >= arena.frame - ROLLBACK_MAX_TICKS:
+				_pending_rollback_tick = tick if _pending_rollback_tick < 0 else mini(_pending_rollback_tick, tick)
+			else:
+				push_warning("Rollback input arrived too late: tick %d, current %d" % [tick, arena.frame])
+
+func _on_cloud_data_received(remote_id: String, message_value: Variant) -> void:
+	if not cloud_room or not message_value is Dictionary:
+		return
+	var message: Dictionary = message_value
+	match str(message.get("type", "")):
+		"input":
+			var slot := OnlineClient.slot_for_player_id(remote_id)
+			if slot < 1 or not message.get("recent", []) is Array:
+				return
+			for value: Variant in message.recent:
+				if value is Dictionary:
+					var entry: Dictionary = value
+					_store_rollback_input(int(entry.get("tick", -1)), slot, int(entry.get("buttons", 0)), true)
+		"state_hash":
+			var tick := int(message.get("tick", -1))
+			if tick >= 0 and _rollback_hashes.has(tick) and int(_rollback_hashes[tick]) != int(message.get("hash", 0)):
+				push_warning("DESYNC tick=%d local=%s remote=%s" % [tick, _rollback_hashes[tick], message.get("hash", 0)])
+				if is_host() and _rollback_states.has(tick):
+					OnlineClient.send_game_packet({"type": "state_repair", "target": remote_id, "state": _rollback_states[tick]})
+		"state_repair":
+			if str(message.get("target", "")) == OnlineClient.local_player_id and remote_id == str(OnlineClient.room_state.get("host_id", "")) and message.get("state") is Dictionary:
+				arena.restore_snapshot(message.state)
+		"result_confirm":
+			var slot := OnlineClient.slot_for_player_id(remote_id)
+			if slot > 0:
+				_record_confirm(slot)
+
+func _on_cloud_tick_completed(state: Dictionary) -> void:
+	var tick := int(state.get("frame", 0))
+	_rollback_states[tick] = state.duplicate(true)
+	var oldest := tick - ROLLBACK_MAX_TICKS - ROLLBACK_INPUT_DELAY - 2
+	for history: Dictionary in [_rollback_states, _rollback_inputs, _rollback_used, _rollback_hashes]:
+		for key: Variant in history.keys():
+			if int(key) < oldest:
+				history.erase(key)
+	if not _resimulating and tick > 0 and tick % ROLLBACK_HASH_INTERVAL == 0:
+		var state_hash := _rollback_state_hash(state)
+		_rollback_hashes[tick] = state_hash
+		OnlineClient.send_game_packet({"type": "state_hash", "tick": tick, "hash": state_hash})
+
+func _rollback_state_hash(state: Dictionary) -> int:
+	var parts := PackedStringArray([str(state.get("frame", 0)), str(state.get("winner", 0))])
+	for value: Variant in state.get("players", []):
+		if value is Dictionary:
+			var player: Dictionary = value
+			var position: Vector2 = player.get("position", Vector2.ZERO)
+			var velocity: Vector2 = player.get("velocity", Vector2.ZERO)
+			parts.append("%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%s" % [
+				int(player.get("id", 0)), roundi(position.x * 100.0), roundi(position.y * 100.0),
+				roundi(velocity.x * 100.0), roundi(velocity.y * 100.0), int(player.get("stocks", 0)),
+				roundi(float(player.get("percent", 0.0)) * 100.0), int(player.get("life", 0)),
+				roundi(float(player.get("hitstun", 0.0)) * 1000.0), roundi(float(player.get("cooldown", 0.0)) * 1000.0),
+				int(player.get("jumps", 0)), roundi(float(player.get("facing", 0.0))), str(player.get("kind", ""))])
+	return hash("|".join(parts))
+
+func _physics_process(_delta: float) -> void:
+	if not cloud_room or phase != Phase.PLAYING or not is_instance_valid(arena) or _pending_rollback_tick < 0:
+		return
+	var target_tick := arena.frame
+	var rollback_tick := maxi(_pending_rollback_tick, target_tick - ROLLBACK_MAX_TICKS)
+	_pending_rollback_tick = -1
+	if not _rollback_states.has(rollback_tick):
+		return
+	_resimulating = true
+	rollback_count += 1
+	arena.restore_snapshot(_rollback_states[rollback_tick])
+	while arena.frame < target_tick and phase == Phase.PLAYING:
+		arena.simulate_tick(FIXED_TICK_SECONDS)
+	_resimulating = false
 
 func _broadcast_snapshot(state: Dictionary) -> void:
 	if not is_offline() and multiplayer.get_peers().size() > 0:
@@ -720,6 +955,15 @@ func match_result() -> MatchResult:
 func confirm_result() -> void:
 	if phase != Phase.RESULT:
 		return
+	if cloud_room:
+		var id := my_id()
+		if not confirmed.get(id, false):
+			confirmed[id] = true
+			changed.emit()
+			OnlineClient.send_game_packet({"type": "result_confirm"})
+			if is_host():
+				_check_confirmations()
+		return
 	if is_offline():
 		return_to_lobby()
 	elif multiplayer.is_server():
@@ -747,7 +991,7 @@ func _check_confirmations() -> void:
 	for id in room.ids():
 		if not confirmed.get(id, false):
 			changed.emit()
-			if not is_offline():
+			if not is_offline() and not cloud_room:
 				_confirm_state.rpc(confirmed, room.generation)
 			return
 	return_to_lobby()
@@ -761,6 +1005,9 @@ func _confirm_state(states: Dictionary, round_generation: int) -> void:
 ## Host-only shared return to the same room's lobby with readiness cleared.
 func return_to_lobby() -> void:
 	if phase != Phase.RESULT or not is_host():
+		return
+	if cloud_room:
+		OnlineClient.return_lobby()
 		return
 	for entry in room.players:
 		entry.is_ready = false
