@@ -1,6 +1,7 @@
 extends SceneTree
-## Screen flow checks for Docs/00–02: main menu → 게임하기 → 방 참여 popup → 대기방 (online and
-## training) → 경기 → 결과, including the training dummy. Prints a short text picture of each
+## Screen flow checks for Docs/00–02: main menu → PLAY submenu (ONLINE / TRAINING) → temporary
+## online screen → 방 참여 popup → 대기방 (online and training) → 경기 → 결과, including the
+## training dummy. Prints a short text picture of each
 ## main scene ("[장면] ...") for people reviewing the run.
 ## Screen scripts use the Session autoload, so they are only touched through untyped variables.
 
@@ -42,7 +43,8 @@ func run() -> void:
 	root.add_child(router)
 	await frames(1)
 	await check_main_menu()
-	await check_start_game()
+	await check_play_menu()
+	await check_online_screen()
 	await check_online_lobby()
 	await check_training()
 	session.leave()
@@ -67,64 +69,147 @@ func restore_settings() -> void:
 func check_main_menu() -> void:
 	var menu: Control = router.current
 	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Game opens on the main menu")
-	check(menu.play_button.text == UiStyle.MENU_PLAY and not menu.play_button.disabled, "[게임하기] is available")
-	check(menu.guidebook_button.disabled and menu.settings_button.disabled, "가이드북 / 설정 are not built yet")
+	check(menu.item_text(menu.Item.PLAY) == UiStyle.MAIN_ITEM_PLAY and menu.selected == menu.Item.PLAY, "PLAY is shown and selected first")
+	check(menu.is_item_available(menu.Item.PLAY), "PLAY is available")
+	check(not menu.is_item_available(menu.Item.GUIDEBOOK) and not menu.is_item_available(menu.Item.SETTINGS), "GUIDEBOOK / SETTINGS are not built yet")
+	check(menu.hint_title.text == UiStyle.MAIN_HINT_PLAY, "PLAY shows the Start a Match hint")
+	# Intro: GFIGHT starts low and the photo starts to the right, then both settle.
+	var title_start: float = menu.title_art.position.y
+	var photo_start: float = menu.player_photo.position.x
+	await create_timer(0.8).timeout
+	check(title_start > menu.title_art.position.y and photo_start > menu.player_photo.position.x, "Intro moves GFIGHT up and the photo left")
+	check(menu.title_art.position.is_equal_approx(menu._title_rest) and menu.player_photo.position.is_equal_approx(menu._photo_rest), "Intro ends at the rest positions")
+	# Keyboard: ↓ moves down and wraps, ↑ moves back.
+	press_action(&"ui_down")
+	check(menu.selected == menu.Item.GUIDEBOOK and menu.hint_title.text == UiStyle.MAIN_HINT_GUIDEBOOK, "Down selects GUIDEBOOK")
+	check(menu._sweep_item == menu.Item.GUIDEBOOK, "Selecting GUIDEBOOK starts the sweep")
+	await create_timer(0.4).timeout
+	check(menu._sweep_item == -1, "Sweep ends quickly")
+	var guide_last: Label = menu.guidebook_item.get_node("Word/Last")
+	check(guide_last.get_theme_color("font_color") == UiStyle.MAIN_YELLOW, "After the sweep the last letter is yellow")
+	check(is_equal_approx(menu.selected_wedge.scale.y, menu._wedge_scale.y) and menu._wedge_scale.y > 0.0, "Wedge has grown to full height")
+	press_action(&"ui_up")
+	press_action(&"ui_down")
+	check(menu._sweep_item == menu.Item.GUIDEBOOK, "Selecting GUIDEBOOK again plays the motion again")
+	await frames(2)
+	check(menu.selected_wedge.scale.y < menu._wedge_scale.y, "Wedge starts flat and grows")
+	await create_timer(0.4).timeout
+	press_action(&"ui_accept")
+	await frames(1)
+	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Enter on GUIDEBOOK stays on the main menu")
+	press_action(&"ui_down")
+	press_action(&"ui_down")
+	check(menu.selected == menu.Item.PLAY, "Down from SETTINGS wraps to PLAY")
+	press_action(&"ui_up")
+	check(menu.selected == menu.Item.SETTINGS, "Up from PLAY wraps to SETTINGS")
+	press_action(&"ui_down")
+	await frames(1)
 	describe("메인 메뉴", [
-		"제목: %s, 버전 표시: %s" % [menu.title_label.text, menu.version_label.text],
-		"버튼: [%s] [%s](비활성, 툴팁 \"%s\") [%s](비활성) [%s]" % [menu.play_button.text, menu.guidebook_button.text,
-			menu.guidebook_button.tooltip_text, menu.settings_button.text, menu.quit_button.text],
+		"왼쪽: 흰 패널 + 세로 제목 %s, 오른쪽: 노란 그라데이션" % menu.title_label.text,
+		"메뉴(9도 기울임): %s / %s / %s, 선택 항목은 검은 삼각형 + 흰 글자 + 노란 마지막 글자" % [
+			menu.item_text(menu.Item.PLAY), menu.item_text(menu.Item.GUIDEBOOK), menu.item_text(menu.Item.SETTINGS)],
+		"오른쪽 아래: \"%s\" / \"%s\" / [Enter] Confirm [Esc] Close" % [menu.hint_title.text, menu.hint_sub.text],
 	])
-	menu.play_button.pressed.emit()
+
+func press_action(action: StringName) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	root.push_input(event)
+	var release := InputEventAction.new()
+	release.action = action
+	release.pressed = false
+	root.push_input(release)
+
+# PLAY 하위 메뉴 -----------------------------------------------------------------------
+
+func check_play_menu() -> void:
+	var menu: Control = router.current
+	check(not menu.play_menu_open and not menu.play_submenu.visible, "PLAY submenu starts closed")
+	press_action(&"ui_accept")
+	await frames(1)
+	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Enter on PLAY stays on the main menu")
+	check(menu.play_menu_open and menu.play_submenu.visible, "Enter on PLAY opens the submenu")
+	check(menu.mode_text(menu.PlayItem.ONLINE) == UiStyle.MAIN_ITEM_ONLINE and menu.mode_text(menu.PlayItem.TRAINING) == UiStyle.MAIN_ITEM_TRAINING, "Submenu shows ONLINE and TRAINING")
+	check(menu.play_selected == menu.PlayItem.ONLINE, "ONLINE (top) is selected first")
+	var online_word: Label = menu.online_hole.get_node("Face/Word")
+	var training_word: Label = menu.training_hole.get_node("Face/Word")
+	check(online_word.get_theme_color("font_color") == UiStyle.MAIN_YELLOW and training_word.get_theme_color("font_color") == UiStyle.MAIN_SELECTED_TEXT, "Selected mode is yellow, the other white")
+	check(menu.online_hole.get_node("Face/Marker").visible and not menu.training_hole.get_node("Face/Marker").visible, "Marker sits on the selected mode")
+	check(menu.hint_title.text == UiStyle.MAIN_HINT_CHOOSE and menu.esc_action.text == UiStyle.MAIN_KEY_BACK, "Hint says Choose a Mode, Esc Back")
+	check(is_equal_approx(menu.guidebook_item.modulate.a, menu.submenu_dim_alpha) and is_equal_approx(menu.settings_item.modulate.a, menu.submenu_dim_alpha), "GUIDEBOOK / SETTINGS are dimmed")
+	check(menu.selected == menu.Item.PLAY, "PLAY stays highlighted")
+	check(menu.online_hole.scale.x < 1.0, "Holes pop in")
+	await create_timer(0.4).timeout
+	check(menu.online_hole.scale.is_equal_approx(Vector2.ONE) and menu.training_hole.scale.is_equal_approx(Vector2.ONE), "Pop ends at full size")
+	press_action(&"ui_down")
+	check(menu.play_selected == menu.PlayItem.TRAINING and menu.training_hole.get_node("Face/Marker").visible, "Down selects TRAINING")
+	press_action(&"ui_down")
+	check(menu.play_selected == menu.PlayItem.ONLINE, "Down from TRAINING wraps to ONLINE")
+	press_action(&"ui_up")
+	check(menu.play_selected == menu.PlayItem.TRAINING, "Up from ONLINE wraps to TRAINING")
+	check(menu.selected == menu.Item.PLAY, "Arrows move only inside the submenu")
+	menu._on_hole_mouse_entered(menu.PlayItem.ONLINE)
+	check(menu.play_selected == menu.PlayItem.ONLINE, "Hovering a hole selects it")
+	menu._on_word_mouse_entered(menu.Item.SETTINGS)
+	check(menu.selected == menu.Item.PLAY and menu.play_menu_open, "Hovering a dimmed item does nothing")
+	describe("메인 메뉴 (PLAY 하위 메뉴)", [
+		"PLAY 오른쪽 위에 찢긴 구멍 2개: 위 \"%s / %s\", 아래 \"%s / %s\"" % [
+			menu.mode_text(menu.PlayItem.ONLINE), UiStyle.MENU_ONLINE, menu.mode_text(menu.PlayItem.TRAINING), UiStyle.MODE_TRAINING],
+		"선택한 항목은 노란 글자 + ▶, 다른 항목은 흰 글자. GUIDEBOOK / SETTINGS는 35%로 흐림",
+		"오른쪽 아래: \"%s\" / \"%s\" / [Enter] Confirm [Esc] %s" % [menu.hint_title.text, menu.hint_sub.text, menu.esc_action.text],
+	])
+	press_action(&"ui_cancel")
+	await frames(1)
+	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU and not menu.play_menu_open and not menu.play_submenu.visible, "Esc closes the submenu, not the game")
+	check(menu.hint_title.text == UiStyle.MAIN_HINT_PLAY and menu.esc_action.text == UiStyle.MAIN_KEY_CLOSE, "Hint returns to Start a Match / Close")
+	check(is_equal_approx(menu.guidebook_item.modulate.a, 1.0), "Dimming is removed")
+	menu.confirm()
+	menu.select_mode(menu.PlayItem.ONLINE)
+	menu.confirm_mode()
 	await frames(1)
 
-# 게임하기 / 방 참여 ------------------------------------------------------------------
+# 온라인 공개 방 목록 ----------------------------------------------------------------
 
-func check_start_game() -> void:
-	var start: Control = router.current
-	check(router.current_id == ScreenTypes.ScreenId.START_GAME, "[게임하기] opens 게임하기")
-	check(start.state == start.ScreenState.IDLE and not start.real_sub_menu.visible, "게임하기 opens with 실전 collapsed")
-	describe("게임하기 (처음)", [
-		"왼쪽 위: (←) 뒤로가기, 위치 표시 \"%s\"" % start.location_label.text,
-		"큰 버튼 2개: [%s](칼 아이콘) [%s](과녁 아이콘)" % [start.real_label.text, start.training_label.text],
-		"실전 하위 버튼은 숨김 상태",
+func check_online_screen() -> void:
+	var online: Control = router.current
+	check(router.current_id == ScreenTypes.ScreenId.ONLINE, "ONLINE opens the public room browser")
+	check(online.state == online.ScreenState.IDLE, "Online screen opens idle")
+	check(online.room_name_field.placeholder_text == "방 이름을 입력해 주세요", "Room name uses the requested placeholder")
+	check(not online.refresh_timer.is_stopped(), "Public room list refreshes every three seconds")
+	online._show_rooms([
+		{"room_id": "room-a", "name": "우진이의 방", "host_name": "우진", "player_count": 1, "max_players": 4, "status": "lobby"},
+		{"room_id": "room-b", "name": "연습 상대 구함", "host_name": "동휘", "player_count": 4, "max_players": 4, "status": "lobby"},
 	])
-	start._on_real_button_pressed()
-	check(start.state == start.ScreenState.REAL_EXPANDED and start.real_sub_menu.visible, "실전 shows 방 참여 / 방 생성")
-	describe("게임하기 (실전 펼침)", [
-		"실전 아이콘이 강조색으로 바뀌고 아래에 [%s] [%s]이 나타남" % [start.join_room_button.text, start.create_room_button.text],
-	])
-	# Legacy ENet address parsing remains valid while the new public lobby is introduced.
-	var parsed: Dictionary = session.parse_address("")
-	check(parsed.ok and parsed.host == "127.0.0.1" and parsed.port == 27840, "Empty address uses local default")
-	parsed = session.parse_address("192.168.0.5:30000")
-	check(parsed.ok and parsed.host == "192.168.0.5" and parsed.port == 30000, "IP:port parses")
-	parsed = session.parse_address("192.168.0.5")
-	check(parsed.ok and parsed.port == 27840, "IP alone uses default port")
-	for bad in ["1.2.3.4:abc", "1.2.3.4:70000", "a:b:c", ":27840"]:
-		check(not session.parse_address(bad).ok, "Rejects bad address %s" % bad)
-	start._on_join_room_pressed()
-	check(start._public_browser.visible, "방 참여 opens the public room browser")
-	check(not start._public_browser._refresh_timer.is_stopped(), "Public room browser refreshes every three seconds")
+	check(online.room_list.get_child_count() == 2, "Room list builds one wide card per public room")
+	var full_room: PanelContainer = online.room_list.get_child(1)
+	var full_button: Button = full_room.get_child(0).get_child(0).get_child(2)
+	check(full_button.disabled and full_button.text == "참여 불가", "Full room cannot be joined")
 	describe("공개 방 목록", [
-		"공개 방 이름·현재 인원·상태를 표시",
-		"방을 클릭해 참가하며 3초마다 자동 갱신",
-		"방 이름 입력 후 공개 방 생성",
+		"보노보노를 화면에 꽉 채우고 밝은 하늘색 배경은 무지개로 치환",
+		"방 이름·맵/Stock·방장과 외 N명·1/4 표시·초록 인원등·참여 버튼 표시",
+		"빈 목록 안내는 만들지 않고, 방 이름 입력 후 공개 방 생성",
 	])
-	start._public_browser.close()
-	check(not start._public_browser.visible, "닫기 closes the public room browser")
-	start._on_back_pressed()
+	online._unhandled_key_input(_key(KEY_ESCAPE))
 	await frames(1)
-	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "← returns to the main menu")
-	router.current.play_button.pressed.emit()
+	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Esc returns to the main menu")
+	var menu: Control = router.current
+	check(menu.play_menu_open and menu.play_selected == menu.PlayItem.ONLINE, "Back from online reopens the PLAY submenu on ONLINE")
+	menu.confirm_mode()
 	await frames(1)
 
 # 대기방 (온라인) ----------------------------------------------------------------------
 
 func check_online_lobby() -> void:
-	var start: Control = router.current
+	var online: Control = router.current
 	var err: Error = session.host_game(session.local_name)
 	check(err == OK, "Legacy ENet host path remains available during migration")
-	start._exit_to(StartGameExitResult.Route.LOBBY, ScreenTypes.RoomMode.ONLINE, ScreenTypes.Role.HOST)
+	var result := OnlineExitResult.new()
+	result.route = OnlineExitResult.Route.LOBBY
+	result.room_mode = ScreenTypes.RoomMode.ONLINE
+	result.role = ScreenTypes.Role.HOST
+	result.room_address = session.room.address
+	online.exit_requested.emit(result)
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.LOBBY, "Hosted room opens the lobby")
 	var lobby: Control = router.current
@@ -263,7 +348,7 @@ func check_online_lobby() -> void:
 	lobby._on_back_pressed()
 	lobby._on_modal_confirmed()
 	await frames(1)
-	check(session.phase == session.Phase.MENU and router.current_id == ScreenTypes.ScreenId.START_GAME, "나가기 returns to 게임하기")
+	check(session.phase == session.Phase.MENU and router.current_id == ScreenTypes.ScreenId.ONLINE, "나가기 returns to the online screen")
 
 func check_match_rules(arena: FightArena) -> void:
 	for fighter in arena.fighters:
@@ -292,8 +377,11 @@ func check_match_rules(arena: FightArena) -> void:
 # 훈련장 ------------------------------------------------------------------------------
 
 func check_training() -> void:
-	var start: Control = router.current
-	start._on_training_pressed()
+	router.current._on_back_pressed()
+	await frames(1)
+	var menu: Control = router.current
+	menu.select_mode(menu.PlayItem.TRAINING)
+	menu.confirm_mode()
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.LOBBY and session.training_mode, "훈련장 opens a training lobby")
 	var lobby: Control = router.current
@@ -363,7 +451,9 @@ func check_training() -> void:
 	check(lobby.modal_body.get_child_count() == 0, "Training exit has no close-room warning")
 	lobby._on_modal_confirmed()
 	await frames(1)
-	check(router.current_id == ScreenTypes.ScreenId.START_GAME and session.phase == session.Phase.MENU, "Leaving training returns to 게임하기")
+	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU and session.phase == session.Phase.MENU, "Leaving training returns to the main menu")
+	menu = router.current
+	check(menu.play_menu_open and menu.play_selected == menu.PlayItem.TRAINING, "Main menu reopens the PLAY submenu on TRAINING")
 
 func _key(keycode: Key) -> InputEventKey:
 	var event := InputEventKey.new()

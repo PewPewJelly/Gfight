@@ -5,6 +5,7 @@ signal rooms_updated(rooms: Array)
 signal room_state_updated(state: Dictionary)
 signal connection_changed(connected: bool)
 signal data_received(remote_id: String, message: Variant)
+signal request_failed(message: String)
 
 const DEFAULT_HTTP_BASE := "https://gfight-multi-server.gfight-multi-server.workers.dev"
 const DEFAULT_WS_BASE := "wss://gfight-multi-server.gfight-multi-server.workers.dev"
@@ -37,6 +38,7 @@ func create_room(room_name: String, display_name: String) -> void:
 		func(code: int, data: Variant) -> void:
 			if code != 201 or not data is Dictionary or not data.has("room"):
 				_log("create room failed: HTTP %d" % code)
+				request_failed.emit("방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.")
 				return
 			var created: Dictionary = data.room
 			_log("room created: %s" % created.get("name", ""))
@@ -50,6 +52,7 @@ func join_room(target_room_id: String, display_name: String) -> void:
 	var error := socket.connect_to_url(url)
 	if error != OK:
 		_log("WebSocket start failed: %s" % error_string(error))
+		request_failed.emit("방 연결을 시작하지 못했습니다.")
 		return
 	_log("connecting room %s" % room_id.left(8))
 
@@ -210,6 +213,7 @@ func _send_signal_message(value: Dictionary) -> void:
 func _on_rooms_received(code: int, data: Variant) -> void:
 	if code != 200 or not data is Dictionary or not data.get("rooms", []) is Array:
 		_log("room list failed: HTTP %d" % code)
+		request_failed.emit("공개 방 목록을 불러오지 못했습니다.")
 		return
 	rooms = data.rooms
 	rooms_updated.emit(rooms)
@@ -239,6 +243,7 @@ func _build_debug_overlay() -> void:
 	_debug_panel.position = Vector2(12, 12)
 	_debug_panel.custom_minimum_size = Vector2(470, 210)
 	_debug_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_debug_panel.visible = false
 	layer.add_child(_debug_panel)
 	_debug_label = Label.new()
 	_debug_label.add_theme_font_size_override("font_size", 13)
