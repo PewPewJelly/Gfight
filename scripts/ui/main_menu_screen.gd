@@ -6,8 +6,9 @@ extends Control
 ## 가이드북 / 설정 have no screen yet, so they can be selected but not confirmed.
 ## When the game starts, the GFIGHT title slides up and the photo slides in from the right
 ## (Figma prototype motion, played once per launch instead of looping).
-## The first time each item is selected, a yellow slanted band sweeps through its word (only
-## inside the letters) and leaves the last letter yellow.
+## Every time an item is selected, the black wedge grows up from its base line behind the word
+## and a yellow slanted band sweeps through the word (only inside the letters), leaving the
+## last letter yellow.
 
 signal exit_requested(result: MainMenuExitResult)
 
@@ -16,6 +17,8 @@ enum Item { PLAY, GUIDEBOOK, SETTINGS }
 const DESIGN_SIZE := Vector2(1920.0, 1080.0)
 const SWEEP_SHADER: Shader = preload("res://resources/shaders/menu_sweep.gdshader")
 const NO_BAND: float = -100000.0
+## Base line of the wedge in selected_wedge.svg (design units); the wedge grows up from it.
+const WEDGE_BASE_Y: float = 590.0
 
 ## Intro motion in design units / seconds, from the Figma prototype (2 s timeline):
 ## title y +89 → -25 over 0–30.05 % linear, photo x +200 → 0 over 0–29.58 % ease-out.
@@ -25,11 +28,13 @@ const NO_BAND: float = -100000.0
 @export var intro_photo_from_x: float = 200.0
 @export var intro_photo_duration: float = 0.592
 
-## Selection sweep (design units / seconds). The reference GIF took about 0.3 s; this is
-## faster on purpose.
+## Selection band sweep (design units / seconds). The reference GIF took about 0.3 s; this
+## is faster on purpose.
 @export var sweep_duration: float = 0.15
 @export var sweep_half_width: float = 22.0
 @export var sweep_slant: float = 0.6
+## Wedge grow on selection (reference GIF: about 3 frames at 30 ms).
+@export var wedge_grow_duration: float = 0.09
 
 ## The intro plays only the first time the menu opens after launch.
 static var _intro_played: bool = false
@@ -41,7 +46,9 @@ var _ko_labels: Array[Label] = []
 var _intro: Tween
 var _title_rest: Vector2
 var _photo_rest: Vector2
-var _swept: Array[bool] = [false, false, false]
+var _has_selection: bool = false
+var _wedge_scale: Vector2 = Vector2.ONE
+var _wedge_target: Vector2 = Vector2.ZERO
 var _sweep: Tween
 var _sweep_item: int = -1
 var _sweep_delay: float = 0.0
@@ -121,13 +128,14 @@ func select(item: int) -> void:
 	if item < 0 or item >= _items.size():
 		push_warning("Main menu item %d does not exist" % item)
 		return
-	if _sweep_item != -1 and _sweep_item != item:
-		_end_sweep()
+	if _has_selection and item == selected:
+		return
+	_has_selection = true
+	_end_sweep()
 	selected = item as Item
-	if not _swept[selected]:
-		_swept[selected] = true
-		_sweep_item = selected
-		_run_sweep.call_deferred(selected)
+	_sweep_item = selected
+	# Word sizes are known only after the containers lay out.
+	_run_sweep.call_deferred(selected)
 	_apply_colors()
 	match selected:
 		Item.PLAY:
@@ -139,8 +147,6 @@ func select(item: int) -> void:
 		Item.SETTINGS:
 			hint_title.text = UiStyle.MAIN_HINT_SETTINGS
 			hint_sub.text = UiStyle.MAIN_HINT_SOON_SUB % UiStyle.MENU_SETTINGS
-	# Word sizes are known only after the containers lay out.
-	_place_wedge.call_deferred()
 
 ## Enter / click on the selected item. Only PLAY leads anywhere for now.
 func confirm() -> void:
@@ -173,17 +179,20 @@ func _on_word_gui_input(event: InputEvent, item: int) -> void:
 	accept_event()
 
 ## The wedge art is drawn for PLAY; for other items it is moved and stretched to their word.
-func _place_wedge() -> void:
-	if not is_inside_tree():
-		return
+func _aim_wedge(item: int) -> void:
 	var base_size := _word(play_item).size
-	var target := _items[selected]
-	var target_size := _word(target).size
+	var target_size := _word(_items[item]).size
 	if is_zero_approx(base_size.x) or is_zero_approx(base_size.y):
 		return
-	selected_wedge.pivot_offset = play_item.position
-	selected_wedge.position = target.position - play_item.position
-	selected_wedge.scale = Vector2(target_size.x / base_size.x, target_size.y / base_size.y)
+	_wedge_scale = Vector2(target_size.x / base_size.x, target_size.y / base_size.y)
+	_wedge_target = _items[item].position
+	selected_wedge.pivot_offset = Vector2(play_item.position.x, WEDGE_BASE_Y)
+
+## grow 0 = flat on its base line, 1 = full wedge for the aimed item. The base line stays put.
+func _set_wedge_grow(grow: float) -> void:
+	var pivot := selected_wedge.pivot_offset
+	selected_wedge.scale = Vector2(_wedge_scale.x, _wedge_scale.y * grow)
+	selected_wedge.position = _wedge_target - pivot + _wedge_scale * (pivot - play_item.position)
 
 func _apply_colors() -> void:
 	for index in range(_items.size()):
@@ -208,11 +217,15 @@ func _run_sweep(item: int) -> void:
 	var start := -sweep_half_width - word.size.y * sweep_slant
 	var finish := word.size.x + sweep_half_width
 	_set_band(start, item)
+	_aim_wedge(item)
+	_set_wedge_grow(0.0)
 	_sweep = create_tween()
 	if _sweep_delay > 0.0:
 		_sweep.tween_interval(_sweep_delay)
 		_sweep_delay = 0.0
-	_sweep.tween_method(_set_band.bind(item), start, finish, sweep_duration)
+	_sweep.tween_method(_set_wedge_grow, 0.0, 1.0, wedge_grow_duration) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_sweep.parallel().tween_method(_set_band.bind(item), start, finish, sweep_duration)
 	_sweep.finished.connect(_end_sweep)
 
 func _set_band(band_pos: float, item: int) -> void:
@@ -227,6 +240,8 @@ func _end_sweep() -> void:
 	if _sweep_item == -1:
 		return
 	_set_band(NO_BAND, _sweep_item)
+	_aim_wedge(_sweep_item)
+	_set_wedge_grow(1.0)
 	_sweep_item = -1
 	_apply_colors()
 

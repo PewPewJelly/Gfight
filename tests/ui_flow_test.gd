@@ -80,14 +80,18 @@ func check_main_menu() -> void:
 	# Keyboard: ↓ moves down and wraps, ↑ moves back.
 	press_action(&"ui_down")
 	check(menu.selected == menu.Item.GUIDEBOOK and menu.hint_title.text == UiStyle.MAIN_HINT_GUIDEBOOK, "Down selects GUIDEBOOK")
-	check(menu._sweep_item == menu.Item.GUIDEBOOK, "First GUIDEBOOK selection starts the sweep")
+	check(menu._sweep_item == menu.Item.GUIDEBOOK, "Selecting GUIDEBOOK starts the sweep")
 	await create_timer(0.4).timeout
 	check(menu._sweep_item == -1, "Sweep ends quickly")
 	var guide_last: Label = menu.guidebook_item.get_node("Word/Last")
 	check(guide_last.get_theme_color("font_color") == UiStyle.MAIN_YELLOW, "After the sweep the last letter is yellow")
+	check(is_equal_approx(menu.selected_wedge.scale.y, menu._wedge_scale.y) and menu._wedge_scale.y > 0.0, "Wedge has grown to full height")
 	press_action(&"ui_up")
 	press_action(&"ui_down")
-	check(menu._sweep_item == -1, "Selecting GUIDEBOOK again does not sweep")
+	check(menu._sweep_item == menu.Item.GUIDEBOOK, "Selecting GUIDEBOOK again plays the motion again")
+	await frames(2)
+	check(menu.selected_wedge.scale.y < menu._wedge_scale.y, "Wedge starts flat and grows")
+	await create_timer(0.4).timeout
 	press_action(&"ui_accept")
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Enter on GUIDEBOOK stays on the main menu")
