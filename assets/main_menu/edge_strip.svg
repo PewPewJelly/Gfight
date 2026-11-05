@@ -1,3 +1,4 @@
-<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M760 0H805L565 1080H520L760 0Z" fill="#141416"/>
+<svg width="1045" height="3240" viewBox="0 0 1045 3240" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Figma "Edge strip" M760 0H805L565 1080H520Z, extended 1080 above and below so tall windows show no gap. -->
+<path d="M1000 0H1045L325 3240H280L1000 0Z" fill="#141416"/>
 </svg>

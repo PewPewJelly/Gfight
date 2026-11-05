@@ -4,6 +4,8 @@ extends Control
 ## 1920x1080 design units under Canvas and scaled to fit the window. Keyboard: ↑/↓ move the
 ## selection, Enter confirms, Esc closes the game. Mouse: hover selects, click confirms.
 ## 가이드북 / 설정 have no screen yet, so they can be selected but not confirmed.
+## When the game starts, the GFIGHT title slides up and the photo slides in from the right
+## (Figma prototype motion, played once per launch instead of looping).
 
 signal exit_requested(result: MainMenuExitResult)
 
@@ -11,10 +13,24 @@ enum Item { PLAY, GUIDEBOOK, SETTINGS }
 
 const DESIGN_SIZE := Vector2(1920.0, 1080.0)
 
+## Intro motion in design units / seconds, from the Figma prototype (2 s timeline):
+## title y +89 → -25 over 0–30.05 % linear, photo x +200 → 0 over 0–29.58 % ease-out.
+@export var intro_title_from_y: float = 89.0
+@export var intro_title_to_y: float = -25.0
+@export var intro_title_duration: float = 0.601
+@export var intro_photo_from_x: float = 200.0
+@export var intro_photo_duration: float = 0.592
+
+## The intro plays only the first time the menu opens after launch.
+static var _intro_played: bool = false
+
 var selected: Item = Item.PLAY
 var _leaving: bool = false
 var _items: Array[Control] = []
 var _ko_labels: Array[Label] = []
+var _intro: Tween
+var _title_rest: Vector2
+var _photo_rest: Vector2
 
 @onready var canvas: Control = %Canvas
 @onready var hint_corner: Control = %HintCorner
@@ -25,6 +41,8 @@ var _ko_labels: Array[Label] = []
 @onready var settings_item: Control = %SettingsItem
 @onready var hint_title: Label = %HintTitle
 @onready var hint_sub: Label = %HintSub
+@onready var title_art: Control = %TitleArt
+@onready var player_photo: TextureRect = %PlayerPhoto
 
 func _ready() -> void:
 	_items = [play_item, guidebook_item, settings_item]
@@ -47,6 +65,13 @@ func _ready() -> void:
 	resized.connect(_fit_canvas)
 	_fit_canvas()
 	select(Item.PLAY)
+	_title_rest = title_art.position + Vector2(0.0, intro_title_to_y)
+	_photo_rest = player_photo.position
+	if _intro_played:
+		skip_intro()
+	else:
+		_intro_played = true
+		_play_intro()
 
 func enter(_data: RefCounted) -> void:
 	_leaving = false
@@ -100,6 +125,13 @@ func confirm() -> void:
 	_leaving = true
 	exit_requested.emit(MainMenuExitResult.new())
 
+## Jumps the intro to its last frame (screenshots, returning to the menu).
+func skip_intro() -> void:
+	if _intro != null and _intro.is_valid():
+		_intro.kill()
+	title_art.position = _title_rest
+	player_photo.position = _photo_rest
+
 func is_item_available(item: int) -> bool:
 	return item == Item.PLAY
 
@@ -128,6 +160,14 @@ func _place_wedge() -> void:
 	selected_wedge.pivot_offset = play_item.position
 	selected_wedge.position = target.position - play_item.position
 	selected_wedge.scale = Vector2(target_size.x / base_size.x, target_size.y / base_size.y)
+
+func _play_intro() -> void:
+	title_art.position = _title_rest + Vector2(0.0, intro_title_from_y - intro_title_to_y)
+	player_photo.position = _photo_rest + Vector2(intro_photo_from_x, 0.0)
+	_intro = create_tween().set_parallel(true)
+	_intro.tween_property(title_art, "position", _title_rest, intro_title_duration)
+	_intro.tween_property(player_photo, "position", _photo_rest, intro_photo_duration) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func _fit_canvas() -> void:
 	var fit := minf(size.x / DESIGN_SIZE.x, size.y / DESIGN_SIZE.y)
