@@ -23,7 +23,7 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 | 화면 | 파일 | 내용 |
 |---|---|---|
 | 메인 메뉴 | `scenes/ui/main_menu_screen.tscn` | Figma "S1 Main Menu"(2026-11-05) 적용. 1920×1080 디자인을 창에 맞춰 축소. 노란 그라데이션(GradientTexture2D)·점무늬·흰 왼쪽 패널·검은 띠·세로 제목 GFIGHT(그림은 `assets/main_menu/`). 메뉴 PLAY / GUIDEBOOK / SETTINGS를 9도 기울여 표시, 선택 항목은 검은 삼각형+흰 글자+노란 마지막 글자. ↑/↓ 이동, Enter 확인, Esc 게임 종료, 마우스는 올리면 선택·클릭하면 확인. 가이드북·설정은 화면이 없어 선택만 되고 확인은 무시. 오른쪽 아래 명령 안내(Start a Match, Enter/Esc). 왼쪽에 인물 사진(`assets/main_menu/player_photo.webp`, 흰 패널 모양으로 잘림). 흰 패널·검은 띠는 위아래로 늘려 세로로 긴 창에서도 끊기지 않음. 처음 실행 때 한 번 GFIGHT가 위로(0.6초), 사진이 오른쪽에서 왼쪽으로(0.59초) 들어옴. 값은 `main_menu_screen.gd`의 `intro_*` 내보내기 변수. 항목이 선택될 때마다 검은 삼각형이 밑변에서 위로 0.09초 동안 자라나고(`wedge_grow_duration`), 동시에 노란 사선 띠가 글자 안에서만 왼쪽→오른쪽으로 0.15초 동안 훑고 마지막 글자를 노랗게 남김(`resources/shaders/menu_sweep.gdshader`, `sweep_*` 변수). 처음 PLAY는 시작 애니메이션의 제목이 다 올라간 뒤 재생. **PLAY 하위 메뉴**(Figma "S1 Main Menu - Play state", 2026-11-05): PLAY를 확인하면 PLAY 오른쪽 위에 찢긴 구멍 2개(`assets/main_menu/play_hole_*.svg`)로 ONLINE / 온라인(위), TRAINING / 훈련장(아래)이 나타남. 선택 항목은 노란 글자+▶, GUIDEBOOK·SETTINGS는 35%로 흐림, 안내는 "Choose a Mode" / Esc Back. ↑/↓ 이동, Enter 확인, Esc 닫기, 마우스는 올리면 선택·클릭하면 확인, PLAY를 다시 누르면 닫힘. ONLINE → 온라인(임시) 화면, TRAINING → 바로 훈련장 대기방 |
-| 온라인 공개 방 | `scenes/ui/online_screen.tscn` | Cloudflare 공개 방 목록을 3초마다 갱신한다. 방 이름·맵/Stock·방장과 추가 인원·4칸 인원등·참여 가능 여부를 표시하고, 같은 화면에서 방을 만들거나 참여한다. 보노보노 사진을 화면에 꽉 채우며 사진의 밝은 하늘색 배경은 셰이더로 무지개로 바꾼다. 방 생성자는 첫 `room_state`를 받으면 Cloud 호스트로 등록되어 기존 대기방 화면으로 바로 이동한다. (←)/Esc는 메인 메뉴의 PLAY 하위 메뉴로 돌아간다. 참가자의 대기방 진입과 경기 시작·롤백 동기화는 남아 있다. |
+| 온라인 공개 방 | `scenes/ui/online_screen.tscn` | Cloudflare 공개 방 목록을 3초마다 갱신한다. 방 이름·맵/Stock·방장과 추가 인원·4칸 인원등·참여 가능 여부를 표시하고, 같은 화면에서 방을 만들거나 참여한다. 보노보노 사진을 화면에 꽉 채우며 사진의 밝은 하늘색 배경은 셰이더로 무지개로 바꾼다. 생성자와 참가자는 첫 `room_state`를 받으면 기존 대기방 화면으로 이동한다. 대기방 상태, WebRTC 입력, 롤백, 결과 복귀가 연결되어 있다. (←)/Esc는 메인 메뉴의 PLAY 하위 메뉴로 돌아간다. |
 | 대기방 (SYS-02) | `scenes/ui/lobby_screen.tscn` + `scenes/ui/lobby/` | 1920×1080 기울어진 무대(창 크기에 맞춰 축소·가운데), 내 캐릭터·카드·준비/시작 버튼, 탭 [방][캐릭터][설정], 참가자 카드·⋯ 메뉴(프로필·음소거·강제 퇴장), 말풍선 채팅, 방 주소 팝오버·복사, 준비 화살표, 모달, 토스트 |
 | 경기·결과 | `scenes/ui/match_screen.tscn` | 기존 S3 HUD(`match_hud.gd`)와 S4 결과(`result_screen.gd`)를 한 화면에. 허수아비는 회색·"허수아비" 표시 |
 
@@ -192,11 +192,13 @@ Windows에서는 전체 테스트를 한 번에 실행할 수 있다.
 ### 검증 결과 (2026-11-06, Cloudflare/WebRTC 롤백 경로)
 
 - Godot 4.7.2 Windows: combat, gameplay, rollback, UI flow 검사 실패 0건.
+- Cloudflare 공개 STUN `stun.cloudflare.com:3478`을 사용하고, 모든 DataChannel이 열린 뒤에만 시작 버튼과 전투 진입을 허용한다.
+- P2P 연결 상태는 F3 로그에 표시하며 15초 안에 열리지 않으면 전투를 시작하지 않고 대기방으로 복귀한다.
 - 로컬 Room Durable Object에 WebSocket 4명을 연결해 방 설정·채팅·준비·경기 시작·로비 복귀·강퇴를 검증했다.
 - Godot 프로세스 4개가 각각 다른 3명과 WebRTC DataChannel을 열고 입력 패킷을 수신했다.
-- Godot 프로세스 2개가 60틱으로 240틱을 실행한 뒤 같은 상태 해시 `1051696118`을 냈다.
+- 운영 Cloudflare 방에 연결한 Godot 프로세스 2개가 STUN 설정으로 240틱을 실행한 뒤 같은 상태 해시 `3674258876`을 냈다.
 - 롤백 단위 검사는 과거 상태 복원, 수정 입력 재실행, 같은 상태·입력의 동일 결과를 확인했다.
-- 서로 다른 실제 PC·네트워크와 TURN 경로는 아직 검증하지 않았다.
+- STUN 적용 후 서로 다른 실제 PC·네트워크 재시험과 TURN 경로는 아직 검증하지 않았다.
 
 ### 검증 결과 (2026-11-05, PLAY 하위 메뉴 + 온라인 임시 화면)
 

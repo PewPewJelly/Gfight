@@ -8,6 +8,9 @@ signal data_received(remote_id: String, message: Variant)
 signal request_failed(message: String)
 signal chat_received(remote_id: String, text: String)
 signal match_started(data: Dictionary)
+signal match_connection_progress(ready_count: int, total_count: int)
+signal match_connection_failed
+signal mesh_status_changed(ready_count: int, total_count: int, failed: bool)
 signal kicked
 signal lobby_returned
 signal server_error(code: String)
@@ -15,6 +18,12 @@ signal server_error(code: String)
 const DEFAULT_HTTP_BASE := "https://gfight-multi-server.gfight-multi-server.workers.dev"
 const DEFAULT_WS_BASE := "wss://gfight-multi-server.gfight-multi-server.workers.dev"
 const LOG_LIMIT := 40
+const MATCH_CONNECT_TIMEOUT_MSEC := 15000
+const ICE_CONFIGURATION := {
+	"iceServers": [
+		{"urls": ["stun:stun.cloudflare.com:3478"]}
+	]
+}
 
 var http_base := DEFAULT_HTTP_BASE
 var ws_base := DEFAULT_WS_BASE
@@ -28,6 +37,10 @@ var _socket_was_open := false
 var _logs: Array[String] = []
 var _debug_label: Label
 var _debug_panel: PanelContainer
+var _pending_match_start: Dictionary = {}
+var _match_connect_deadline_msec := 0
+var _last_match_progress := ""
+var _last_mesh_status := ""
 
 func _ready() -> void:
 	_build_debug_overlay()
@@ -62,6 +75,8 @@ func join_room(target_room_id: String, display_name: String) -> void:
 	_log("connecting room %s" % room_id.left(8))
 
 func disconnect_room() -> void:
+	_clear_pending_match()
+	_last_mesh_status = ""
 	for remote_id: String in connections.keys():
 		_close_peer(remote_id)
 	connections.clear()
@@ -107,6 +122,15 @@ func send_game_packet(message: Dictionary) -> void:
 func send_test_input(tick: int, buttons: int) -> void:
 	send_game_packet({"type": "input", "tick": tick, "buttons": buttons})
 
+func is_mesh_ready() -> bool:
+	var remote_ids := _remote_ids_from_players(room_state.get("players", []))
+	if remote_ids.is_empty():
+		return false
+	for remote_id: String in remote_ids:
+		if not _channel_is_open(remote_id):
+			return false
+	return true
+
 func _process(_delta: float) -> void:
 	socket.poll()
 	var state := socket.get_ready_state()
@@ -126,6 +150,11 @@ func _process(_delta: float) -> void:
 		var entry: Dictionary = connections[remote_id]
 		var peer: WebRTCPeerConnection = entry.peer
 		peer.poll()
+		var connection_state := int(peer.get_connection_state())
+		if connection_state != int(entry.get("connection_state", -1)):
+			entry.connection_state = connection_state
+			connections[remote_id] = entry
+			_log("Peer %s: %s" % [remote_id.left(6), _peer_state_name(connection_state)])
 		var channel: WebRTCDataChannel = entry.channel
 		if channel.get_ready_state() == WebRTCDataChannel.STATE_OPEN and not entry.open_logged:
 			entry.open_logged = true
@@ -141,6 +170,8 @@ func _process(_delta: float) -> void:
 			if message_type != "input":
 				_log("data <- %s %s" % [remote_id.left(6), str(message).left(80)])
 			data_received.emit(remote_id, message)
+	_emit_mesh_status_if_changed()
+	_update_pending_match()
 
 func _handle_server_message(text: String) -> void:
 	var parsed: Variant = JSON.parse_string(text)
@@ -162,10 +193,12 @@ func _handle_server_message(text: String) -> void:
 		"chat":
 			chat_received.emit(str(message.get("from_id", "")), str(message.get("text", "")))
 		"match_start":
-			match_started.emit(message)
+			_queue_match_start(message)
 		"kicked":
+			_clear_pending_match()
 			kicked.emit()
 		"lobby_returned":
+			_clear_pending_match()
 			lobby_returned.emit()
 		"error":
 			var code := str(message.get("code", "UNKNOWN"))
@@ -194,14 +227,19 @@ func _sync_mesh(players_value: Variant) -> void:
 
 func _create_peer(remote_id: String, offerer: bool) -> void:
 	var peer := WebRTCPeerConnection.new()
-	var error := peer.initialize({})
+	var error := peer.initialize(ICE_CONFIGURATION)
 	if error != OK:
 		_log("WebRTC init failed: %s" % error_string(error))
 		return
 	peer.session_description_created.connect(_on_description_created.bind(remote_id))
 	peer.ice_candidate_created.connect(_on_ice_candidate.bind(remote_id))
 	var channel := peer.create_data_channel("game", {"negotiated": true, "id": 1})
-	connections[remote_id] = {"peer": peer, "channel": channel, "open_logged": false}
+	connections[remote_id] = {
+		"peer": peer,
+		"channel": channel,
+		"open_logged": false,
+		"connection_state": int(peer.get_connection_state())
+	}
 	_log("peer created %s offerer=%s" % [remote_id.left(6), offerer])
 	if offerer:
 		peer.create_offer()
@@ -245,6 +283,100 @@ func _close_peer(remote_id: String) -> void:
 	var peer: WebRTCPeerConnection = connections[remote_id].peer
 	peer.close()
 	_log("peer removed %s" % remote_id.left(6))
+
+func _queue_match_start(message: Dictionary) -> void:
+	_pending_match_start = message.duplicate(true)
+	_match_connect_deadline_msec = Time.get_ticks_msec() + MATCH_CONNECT_TIMEOUT_MSEC
+	_last_match_progress = ""
+	_log("Match start received; waiting for P2P channels")
+	_update_pending_match()
+
+func _update_pending_match() -> void:
+	if _pending_match_start.is_empty():
+		return
+	var remote_ids := _remote_ids_from_players(_pending_match_start.get("players", []))
+	var open_count := 0
+	var failed := false
+	for remote_id: String in remote_ids:
+		if _channel_is_open(remote_id):
+			open_count += 1
+		elif connections.has(remote_id):
+			var peer: WebRTCPeerConnection = connections[remote_id].peer
+			failed = failed or peer.get_connection_state() == WebRTCPeerConnection.STATE_FAILED
+	var progress := "%d/%d" % [open_count, remote_ids.size()]
+	if progress != _last_match_progress:
+		_last_match_progress = progress
+		_log("P2P ready %s" % progress)
+		match_connection_progress.emit(open_count, remote_ids.size())
+	if not remote_ids.is_empty() and open_count == remote_ids.size():
+		var message := _pending_match_start.duplicate(true)
+		_clear_pending_match()
+		_log("P2P mesh ready; entering match")
+		match_started.emit(message)
+	elif failed or Time.get_ticks_msec() >= _match_connect_deadline_msec:
+		_fail_pending_match()
+
+func _fail_pending_match() -> void:
+	if _pending_match_start.is_empty():
+		return
+	_clear_pending_match()
+	_log("P2P connection failed")
+	match_connection_failed.emit()
+
+func _clear_pending_match() -> void:
+	_pending_match_start.clear()
+	_match_connect_deadline_msec = 0
+	_last_match_progress = ""
+
+func _remote_ids_from_players(players_value: Variant) -> Array[String]:
+	var remote_ids: Array[String] = []
+	if not players_value is Array:
+		return remote_ids
+	for value: Variant in players_value:
+		if not value is Dictionary:
+			continue
+		var remote_id := str((value as Dictionary).get("player_id", ""))
+		if not remote_id.is_empty() and remote_id != local_player_id:
+			remote_ids.append(remote_id)
+	return remote_ids
+
+func _channel_is_open(remote_id: String) -> bool:
+	if not connections.has(remote_id):
+		return false
+	var channel: WebRTCDataChannel = connections[remote_id].channel
+	return channel.get_ready_state() == WebRTCDataChannel.STATE_OPEN
+
+func _emit_mesh_status_if_changed() -> void:
+	var remote_ids := _remote_ids_from_players(room_state.get("players", []))
+	var open_count := 0
+	var failed := false
+	for remote_id: String in remote_ids:
+		if _channel_is_open(remote_id):
+			open_count += 1
+		elif connections.has(remote_id):
+			var peer: WebRTCPeerConnection = connections[remote_id].peer
+			failed = failed or peer.get_connection_state() == WebRTCPeerConnection.STATE_FAILED
+	var status := "%d/%d/%s" % [open_count, remote_ids.size(), failed]
+	if status == _last_mesh_status:
+		return
+	_last_mesh_status = status
+	mesh_status_changed.emit(open_count, remote_ids.size(), failed)
+
+func _peer_state_name(state: int) -> String:
+	match state:
+		WebRTCPeerConnection.STATE_NEW:
+			return "NEW"
+		WebRTCPeerConnection.STATE_CONNECTING:
+			return "CONNECTING"
+		WebRTCPeerConnection.STATE_CONNECTED:
+			return "CONNECTED"
+		WebRTCPeerConnection.STATE_DISCONNECTED:
+			return "DISCONNECTED"
+		WebRTCPeerConnection.STATE_FAILED:
+			return "FAILED"
+		WebRTCPeerConnection.STATE_CLOSED:
+			return "CLOSED"
+	return "UNKNOWN(%d)" % state
 
 func _send_signal_message(value: Dictionary) -> void:
 	if socket.get_ready_state() != WebSocketPeer.STATE_OPEN:

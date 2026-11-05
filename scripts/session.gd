@@ -82,6 +82,9 @@ func _ready() -> void:
 	OnlineClient.room_state_updated.connect(_sync_cloud_room)
 	OnlineClient.chat_received.connect(_on_cloud_chat)
 	OnlineClient.match_started.connect(_on_cloud_match_started)
+	OnlineClient.match_connection_progress.connect(_on_cloud_match_connection_progress)
+	OnlineClient.match_connection_failed.connect(_on_cloud_match_connection_failed)
+	OnlineClient.mesh_status_changed.connect(_on_cloud_mesh_status_changed)
 	OnlineClient.kicked.connect(_on_cloud_kicked)
 	OnlineClient.lobby_returned.connect(_on_cloud_lobby_returned)
 	OnlineClient.data_received.connect(_on_cloud_data_received)
@@ -293,7 +296,9 @@ func can_start() -> bool:
 		return false
 	if training_mode:
 		return true
-	return room.players.size() >= RoomState.MIN_PLAYERS and all_ready()
+	if room.players.size() < RoomState.MIN_PLAYERS or not all_ready():
+		return false
+	return not cloud_room or OnlineClient.is_mesh_ready()
 
 func start_game() -> bool:
 	if not can_start():
@@ -692,6 +697,27 @@ func _on_cloud_connection_changed(connected: bool) -> void:
 	leave()
 	toast = UiStyle.HOST_LOST
 	changed.emit()
+
+func _on_cloud_mesh_status_changed(_ready_count: int, _total_count: int, failed: bool) -> void:
+	if not cloud_room or phase != Phase.LOBBY:
+		return
+	if failed:
+		room.notice = UiStyle.P2P_CONNECTION_FAILED
+	changed.emit()
+
+func _on_cloud_match_connection_progress(ready_count: int, total_count: int) -> void:
+	if not cloud_room or phase != Phase.LOBBY:
+		return
+	room.notice = UiStyle.P2P_CONNECTING % [ready_count, total_count]
+	changed.emit()
+
+func _on_cloud_match_connection_failed() -> void:
+	if not cloud_room or phase != Phase.LOBBY:
+		return
+	room.notice = UiStyle.P2P_CONNECTION_FAILED
+	changed.emit()
+	if is_host():
+		OnlineClient.return_lobby()
 
 func _on_cloud_match_started(data: Dictionary) -> void:
 	if not cloud_room or phase != Phase.LOBBY:
