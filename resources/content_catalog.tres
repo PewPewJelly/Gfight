@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="ContentCatalog" format=3]
+[gd_resource type="Resource" script_class="ContentCatalog" format=3 uid="uid://bd33k73kyoda7"]
 
-[ext_resource type="Script" path="res://scripts/data/content_catalog.gd" id="1_catalog"]
-[ext_resource type="Script" path="res://scripts/data/character_def.gd" id="2_character"]
-[ext_resource type="Script" path="res://scripts/data/map_def.gd" id="3_map"]
+[ext_resource type="Script" uid="uid://c3d4oqb607irf" path="res://scripts/data/content_catalog.gd" id="1_catalog"]
+[ext_resource type="Script" uid="uid://cr07p356ii2mk" path="res://scripts/data/character_def.gd" id="2_character"]
+[ext_resource type="Script" uid="uid://dtxhti54dfhvc" path="res://scripts/data/map_def.gd" id="3_map"]
 
 [sub_resource type="Resource" id="Resource_test_fighter"]
 script = ExtResource("2_character")
