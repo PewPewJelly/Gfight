@@ -77,14 +77,14 @@
 ```gdscript
 ## 화면 흐름 (오버레이·전환). 한 번에 하나.
 enum FlowState {
-    BROWSING,     # 기본. 탭 조작 가능
-    CHAT_INPUT,   # 내 말풍선 입력 중 (온라인만)
-    INFO_OPEN,    # 방 주소 팝오버 열림 (온라인만)
-    MENU_OPEN,    # 다른 플레이어 카드의 ⋯ 메뉴 열림 (호스트만)
-    MODAL_OPEN,   # 모달 열림 (종류는 modal_kind)
-    STARTING,     # 시작 요청을 보내고 경기 시작을 기다림
-    CLOSING,      # 호스트가 방을 닫는 중 (Session.phase == "closing", 0.2초)
-    LEAVING,      # 다른 화면으로 전환 중. 모든 입력 무시
+	BROWSING,     # 기본. 탭 조작 가능
+	CHAT_INPUT,   # 내 말풍선 입력 중 (온라인만)
+	INFO_OPEN,    # 방 주소 팝오버 열림 (온라인만)
+	MENU_OPEN,    # 다른 플레이어 카드의 ⋯ 메뉴 열림 (호스트만)
+	MODAL_OPEN,   # 모달 열림 (종류는 modal_kind)
+	STARTING,     # 시작 요청을 보내고 경기 시작을 기다림
+	CLOSING,      # 호스트가 방을 닫는 중 (Session.phase == "closing", 0.2초)
+	LEAVING,      # 다른 화면으로 전환 중. 모든 입력 무시
 }
 
 enum Tab { ROOM, CHARACTER, SETTINGS }
@@ -208,52 +208,52 @@ LobbyScreen (Control, Full Rect)                                   lobby_screen.
 └─ %LobbyStage (Control, 1920×1080, 화면 가운데)
    ├─ StageFrame (Panel, 1920×1080, 테두리 5px #555, 모서리 36px, 배경 #A9A9A9)
    └─ %Stage (Control, 위치 (5,5), 1910×1070, clip_contents = true)
-      ├─ Stripes (Control, Full Rect, _draw: 78° 줄무늬, 흰색 4.5%, 두께 2px, 간격 28px)
-      │
-      ├─ %Portrait (Control, (230,300), 440×440)
-      │  ├─ PortraitShadow (Control, 300×36 타원, 검정 15%, top 462, 가로 중앙)
-      │  ├─ %PortraitArt (CharacterArt, 440×440)
-      │  └─ %MyBubbleAnchor (Control, 아트의 x 40%, y −4% 지점)
-      │     ├─ %MyBubble (BubbleView)
-      │     └─ %ChatInput (BubbleInput, 420×66)
-      ├─ %ChatHintButton (Button, (40,812), 알약, 검정 25%, UiStyle.CHAT_HINT "Enter 채팅", z 10)
-      ├─ %MyCard (Control, (0, 874), 600×196, z 10)
-      │  ├─ MyCardShape (Control, _draw 3.5)
-      │  ├─ %MyCharacterName (Label, (40,28), 26px bold #6B6B6B)
-      │  ├─ %MyNickname (Label, (36,66), 88px black, 최대 너비 360, 말줄임)
-      │  ├─ %MyHostStar (Control, 56×56 별, 닉네임 오른쪽 8px)
-      │  └─ %ReadyButton (RoundButton, (474,70), 100×100)
-      │
-      ├─ %ContentHost (Control, Full Rect, z 10)        ← 아래 4개 중 하나만 자식으로 둠
-      │  ├─ PlayerList        (scenes/ui/lobby/player_list.tscn)
-      │  ├─ CharacterGrid     (scenes/ui/lobby/slant_grid.tscn)
-      │  ├─ MapGrid           (scenes/ui/lobby/slant_grid.tscn)
-      │  └─ SettingsPanel     (scenes/ui/lobby/settings_panel.tscn)
-      │
-      ├─ %RightBand (SlantBox, (1680, −16), 400×1102, #7A7A7A, 테두리 없음, z 5)
-      ├─ %TabRail (Control, z 20)
-      │  ├─ %TabRoom (SlantTab, top 30, 128×56, "방")
-      │  ├─ %TabCharacter (SlantTab, top 98, 128×56, "캐릭터")
-      │  └─ %TabSettings (SlantTab, top 166, 128×56, "설정")
-      ├─ %ReadyArrow (Control, Full Rect, mouse_filter IGNORE, z 20, _draw 3.11)
-      │
-      ├─ %Header (HBoxContainer, (36,28), separation 16, z 30)
-      │  ├─ %BackButton (RoundButton, 80×80)
-      │  └─ %RoomNameBox (PanelContainer, 높이 80, 모서리 22, 테두리 4 #555, 배경 #F4F4F4, 왼쪽 여백 28, 오른쪽 12)
-      │     └─ HBoxContainer (separation 16)
-      │        ├─ %RoomNameLabel (Label, 38px bold, 최대 너비 320, 말줄임)
-      │        └─ %InfoButton (Button, 54×54, 모서리 14)
-      ├─ %RoomChips (HBoxContainer, (36,132), separation 10, z 20)
-      │  ├─ %MapChip (Chip, "맵 {이름}")
-      │  └─ %ReadyChip (Chip, "준비 {n}/{m}")
-      ├─ %InfoPopover (PanelContainer, (36,124), 너비 470, z 30, 기본 숨김)
-      │  └─ VBoxContainer: %AddressLabel (Label, 40px bold) + %CopyButton (Button, "복사")
-      │
-      ├─ %ModalLayer (Control, Full Rect, z 50, 기본 숨김)
-      │  ├─ Dimmer (ColorRect, Full Rect, #1A1A1A 50%, mouse_filter STOP)
-      │  └─ %ModalBox (SlantBox, 너비 780 (프로필 820), 화면 가운데)
-      │     └─ VBoxContainer: %ModalTitle (Label, 40px bold) + %ModalBody (Control) + %ModalButtons (HBoxContainer, 오른쪽 정렬, separation 16)
-      └─ %Toast (PanelContainer, 가운데 아래, 하단에서 165px 위, 글자 27px, z 50, 기본 숨김)
+	  ├─ Stripes (Control, Full Rect, _draw: 78° 줄무늬, 흰색 4.5%, 두께 2px, 간격 28px)
+	  │
+	  ├─ %Portrait (Control, (230,300), 440×440)
+	  │  ├─ PortraitShadow (Control, 300×36 타원, 검정 15%, top 462, 가로 중앙)
+	  │  ├─ %PortraitArt (CharacterArt, 440×440)
+	  │  └─ %MyBubbleAnchor (Control, 아트의 x 40%, y −4% 지점)
+	  │     ├─ %MyBubble (BubbleView)
+	  │     └─ %ChatInput (BubbleInput, 420×66)
+	  ├─ %ChatHintButton (Button, (40,812), 알약, 검정 25%, UiStyle.CHAT_HINT "Enter 채팅", z 10)
+	  ├─ %MyCard (Control, (0, 874), 600×196, z 10)
+	  │  ├─ MyCardShape (Control, _draw 3.5)
+	  │  ├─ %MyCharacterName (Label, (40,28), 26px bold #6B6B6B)
+	  │  ├─ %MyNickname (Label, (36,66), 88px black, 최대 너비 360, 말줄임)
+	  │  ├─ %MyHostStar (Control, 56×56 별, 닉네임 오른쪽 8px)
+	  │  └─ %ReadyButton (RoundButton, (474,70), 100×100)
+	  │
+	  ├─ %ContentHost (Control, Full Rect, z 10)        ← 아래 4개 중 하나만 자식으로 둠
+	  │  ├─ PlayerList        (scenes/ui/lobby/player_list.tscn)
+	  │  ├─ CharacterGrid     (scenes/ui/lobby/slant_grid.tscn)
+	  │  ├─ MapGrid           (scenes/ui/lobby/slant_grid.tscn)
+	  │  └─ SettingsPanel     (scenes/ui/lobby/settings_panel.tscn)
+	  │
+	  ├─ %RightBand (SlantBox, (1680, −16), 400×1102, #7A7A7A, 테두리 없음, z 5)
+	  ├─ %TabRail (Control, z 20)
+	  │  ├─ %TabRoom (SlantTab, top 30, 128×56, "방")
+	  │  ├─ %TabCharacter (SlantTab, top 98, 128×56, "캐릭터")
+	  │  └─ %TabSettings (SlantTab, top 166, 128×56, "설정")
+	  ├─ %ReadyArrow (Control, Full Rect, mouse_filter IGNORE, z 20, _draw 3.11)
+	  │
+	  ├─ %Header (HBoxContainer, (36,28), separation 16, z 30)
+	  │  ├─ %BackButton (RoundButton, 80×80)
+	  │  └─ %RoomNameBox (PanelContainer, 높이 80, 모서리 22, 테두리 4 #555, 배경 #F4F4F4, 왼쪽 여백 28, 오른쪽 12)
+	  │     └─ HBoxContainer (separation 16)
+	  │        ├─ %RoomNameLabel (Label, 38px bold, 최대 너비 320, 말줄임)
+	  │        └─ %InfoButton (Button, 54×54, 모서리 14)
+	  ├─ %RoomChips (HBoxContainer, (36,132), separation 10, z 20)
+	  │  ├─ %MapChip (Chip, "맵 {이름}")
+	  │  └─ %ReadyChip (Chip, "준비 {n}/{m}")
+	  ├─ %InfoPopover (PanelContainer, (36,124), 너비 470, z 30, 기본 숨김)
+	  │  └─ VBoxContainer: %AddressLabel (Label, 40px bold) + %CopyButton (Button, "복사")
+	  │
+	  ├─ %ModalLayer (Control, Full Rect, z 50, 기본 숨김)
+	  │  ├─ Dimmer (ColorRect, Full Rect, #1A1A1A 50%, mouse_filter STOP)
+	  │  └─ %ModalBox (SlantBox, 너비 780 (프로필 820), 화면 가운데)
+	  │     └─ VBoxContainer: %ModalTitle (Label, 40px bold) + %ModalBody (Control) + %ModalButtons (HBoxContainer, 오른쪽 정렬, separation 16)
+	  └─ %Toast (PanelContainer, 가운데 아래, 하단에서 165px 위, 글자 27px, z 50, 기본 숨김)
 ```
 
 ### 3.3 하위 씬 (재사용 단위, `scenes/ui/lobby/` + `scripts/ui/lobby/`)
@@ -539,7 +539,7 @@ var _room_mode: ScreenTypes.RoomMode = ScreenTypes.RoomMode.ONLINE
 ```
 [준비]   참가자: ReadyButton → Session.set_ready(true) → 호스트 검증 → _publish_lobby → 전원 화면 갱신
 [시작]   호스트: ReadyButton(START) → STARTING → Session.start_game() → random 확정·MatchSetup
-         → _begin_match(rpc) → 전원 phase = "playing" → exit(MATCH, match_setup)
+		 → _begin_match(rpc) → 전원 phase = "playing" → exit(MATCH, match_setup)
 [훈련]   ReadyButton(항상 START) → Session.start_game() (검사 생략) → exit(MATCH, room_mode = TRAINING)
 [캐릭터] 타일 클릭 → Session.set_character → 호스트 검증(준비 완료면 거부) → 전원 갱신
 [맵]     호스트: 설정 > 방 > 맵 그림 → MapGrid → 타일 → Session.update_room({map}) → 설정 > 방

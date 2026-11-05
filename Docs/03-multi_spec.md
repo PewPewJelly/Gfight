@@ -34,34 +34,34 @@
 
 ```mermaid
 flowchart TB
-    P1[플레이어 1<br/>Godot]
-    P2[플레이어 2<br/>Godot]
-    P3[플레이어 3<br/>Godot]
-    P4[플레이어 4<br/>Godot]
+	P1[플레이어 1<br/>Godot]
+	P2[플레이어 2<br/>Godot]
+	P3[플레이어 3<br/>Godot]
+	P4[플레이어 4<br/>Godot]
 
-    AUTH[Supabase Auth / DB<br/>계정·프로필·전적]
-    WORKER[Cloudflare Worker<br/>접속 입구·인증 확인]
-    ROOM[Room Durable Object<br/>방 상태·WebRTC 연결 중계]
-    TURN[TURN 서버<br/>직접 연결 실패 시 중계]
+	AUTH[Supabase Auth / DB<br/>계정·프로필·전적]
+	WORKER[Cloudflare Worker<br/>접속 입구·인증 확인]
+	ROOM[Room Durable Object<br/>방 상태·WebRTC 연결 중계]
+	TURN[TURN 서버<br/>직접 연결 실패 시 중계]
 
-    P1 <-->|로그인·전적| AUTH
-    P2 <-->|로그인·전적| AUTH
+	P1 <-->|로그인·전적| AUTH
+	P2 <-->|로그인·전적| AUTH
 
-    P1 <-->|WebSocket| WORKER
-    P2 <-->|WebSocket| WORKER
-    P3 <-->|WebSocket| WORKER
-    P4 <-->|WebSocket| WORKER
-    WORKER <--> ROOM
+	P1 <-->|WebSocket| WORKER
+	P2 <-->|WebSocket| WORKER
+	P3 <-->|WebSocket| WORKER
+	P4 <-->|WebSocket| WORKER
+	WORKER <--> ROOM
 
-    P1 <-.->|WebRTC 게임 데이터| P2
-    P1 <-.->|WebRTC 게임 데이터| P3
-    P1 <-.->|WebRTC 게임 데이터| P4
-    P2 <-.->|WebRTC 게임 데이터| P3
-    P2 <-.->|WebRTC 게임 데이터| P4
-    P3 <-.->|WebRTC 게임 데이터| P4
+	P1 <-.->|WebRTC 게임 데이터| P2
+	P1 <-.->|WebRTC 게임 데이터| P3
+	P1 <-.->|WebRTC 게임 데이터| P4
+	P2 <-.->|WebRTC 게임 데이터| P3
+	P2 <-.->|WebRTC 게임 데이터| P4
+	P3 <-.->|WebRTC 게임 데이터| P4
 
-    P1 -. 직접 연결 실패 .-> TURN
-    TURN -. 중계 .-> P2
+	P1 -. 직접 연결 실패 .-> TURN
+	TURN -. 중계 .-> P2
 ```
 
 Cloudflare는 게임을 매 틱 계산하는 게임 서버가 아니다. 방과 접속을 관리하고, 플레이어끼리 WebRTC 연결을 만들 때 필요한 정보를 전달한다. 연결이 끝난 뒤 실제 게임 입력은 가능한 한 플레이어끼리 직접 주고받는다.
@@ -74,6 +74,7 @@ Cloudflare는 게임을 매 틱 계산하는 게임 서버가 아니다. 방과 
 | Supabase Auth | 로그인, 사용자 ID, 로그인 토큰 | 실시간 게임 패킷 중계 |
 | Supabase Database | 프로필, 승패, 승률, 경기 기록 | 틱 단위 게임 계산 |
 | Cloudflare Worker | WebSocket 접속 입구, 토큰 확인, 방 찾기 | 캐릭터 이동·공격 계산 |
+| LobbyDirectory Durable Object | 공개 방 이름, 방장, 인원수, 상태 목록 | 실제 방 참가자 연결과 게임 통신 |
 | Room Durable Object | 방 참가자, 준비 상태, 캐릭터 선택, WebRTC 시그널 전달 | 입력·스냅샷·롤백 패킷 처리 |
 | WebRTC DataChannel | 입력, 확인 응답, 상태 해시 등 실제 게임 통신 | 영구 데이터 저장 |
 | TURN 서버 | P2P 직접 연결이 막힌 경우 패킷 중계 | 방 규칙이나 게임 판정 |
@@ -81,6 +82,16 @@ Cloudflare는 게임을 매 틱 계산하는 게임 서버가 아니다. 방과 
 Windows 네이티브 Godot에서 WebRTC를 사용할 때는 Godot용 WebRTC 네이티브 확장 설치가 필요하다.
 
 ## 5. 방 안에서 주고받을 정보
+
+### 공개 로비에서 주고받을 정보
+
+- 공개 방 ID와 방 이름
+- 방장 표시 이름
+- 현재 인원과 최대 인원 4명
+- `lobby`, `connecting`, `in_game` 상태
+- 마지막 갱신 시각
+
+Godot은 `GET /rooms`로 공개 방 목록을 받아 화면에 표시하고, `POST /rooms`로 공개 방을 만든다. 방 목록에는 WebRTC 정보나 게임 입력을 저장하지 않는다. 실제 방 상태와 연결은 각 Room Durable Object가 담당한다.
 
 ### Cloudflare 방 서버를 거치는 정보
 
@@ -176,19 +187,21 @@ P3 ─ P4
 
 한 번에 롤백까지 만들지 않고, 각 단계가 작동하는지 확인하면서 진행한다.
 
-1. Cloudflare 서버 저장소와 기본 실행 환경 만들기
-2. 상태 확인 주소와 WebSocket 접속 만들기
-3. 임시 플레이어 ID로 방 생성·참가·퇴장 만들기
-4. 준비 상태와 캐릭터 선택 등 방 상태 동기화하기
-5. 두 Godot 클라이언트 사이에 WebRTC DataChannel 열기
-6. P2P로 간단한 테스트 메시지와 틱 입력 보내기
-7. 기존 호스트 권한 게임을 WebRTC 위에서 한 판 실행하기
-8. Supabase 로그인과 영구 사용자 ID 연결하기
-9. 경기 결과와 승패 저장하기
-10. 3~4인 풀 메시 연결로 확장하기
-11. TURN 연결을 추가하기
-12. 게임 시뮬레이션을 롤백 가능한 구조로 분리하기
-13. 예측·상태 저장·되감기·재실행을 붙이기
+1. Cloudflare 서버 저장소와 기본 실행 환경 만들기 — **배포·검증됨**
+2. `/health` 상태 확인 주소 만들기 — **실서비스 검증됨**
+3. LobbyDirectory와 공개 방 생성·목록 API 만들기 — **실서비스 검증됨**
+4. 방 하나를 담당하는 Room Durable Object 만들기 — **실서비스 검증됨**
+5. 임시 플레이어 ID로 방 참가·퇴장과 WebSocket 연결 만들기 — **실서비스 4인 검증됨**
+6. 준비 상태와 캐릭터 선택 등 방 상태 동기화하기 — **구현됨**
+7. Godot 클라이언트 사이에 WebRTC DataChannel 열기 — **Cloudflare 시그널링을 통한 동일 PC 4인 풀 메시 검증됨**
+8. P2P로 간단한 테스트 메시지와 틱 입력 보내기 — **동일 PC 4인 입력 교환 검증됨**
+9. 기존 호스트 권한 게임을 WebRTC 위에서 한 판 실행하기
+10. Supabase 로그인과 영구 사용자 ID 연결하기
+11. 경기 결과와 승패 저장하기
+12. 3~4인 풀 메시 연결로 확장하기
+13. TURN 연결을 추가하기
+14. 게임 시뮬레이션을 롤백 가능한 구조로 분리하기
+15. 예측·상태 저장·되감기·재실행을 붙이기
 
 ### 첫 번째 완성 기준
 
@@ -208,7 +221,7 @@ P3 ─ P4
 - 최초 게임 권한을 방장에게 둘지, 곧바로 완전한 롤백 동기화로 갈지
 - 방장 퇴장과 경기 중 연결 해제 규칙
 - 재접속 허용 시간
-- 방 공개 여부와 방 코드 길이
+- 공개 방 목록 자동 갱신 간격과 오래된 방 제거 시간
 - 승패 결과가 서로 다르게 보고됐을 때의 처리
 - 상태 해시에 포함할 정확한 게임 데이터
 - 롤백 세부 수치
@@ -231,5 +244,8 @@ P3 ─ P4
 | 2026-11-05 | WebRTC P2P를 목표 통신 방식으로 사용한다. | 확정 |
 | 2026-11-05 | 계정과 전적은 Supabase에 저장한다. | 확정 |
 | 2026-11-05 | 롤백은 단순한 예측 규칙에서 시작해 개선한다. | 방향 확정 |
+| 2026-11-05 | 공개 방 목록에서 방을 선택해 참가하는 방식을 기본으로 한다. | 확정 |
+| 2026-11-05 | 평타는 J, 스킬은 K를 잠정 입력으로 사용한다. | 잠정 |
+| 2026-11-05 | Cloudflare에 서버를 배포하고 Godot 4.7.2와 webrtc-native 1.2.2로 4인 풀 메시와 입력 교환을 검증했다. | 동일 PC 검증됨 |
 | 2026-11-05 | Cloudflare는 방과 시그널링을 맡고 게임 패킷은 처리하지 않는다. | 구조 제안 |
 | 2026-11-05 | 최대 4인은 풀 메시로 연결한다. | 제안 |

@@ -35,6 +35,7 @@ var join_error: JoinError = JoinError.NONE
 ## Generation number that cancels a pending hover-close.
 var _collapse_ticket: int = 0
 var _toast_left: float = 0.0
+var _public_browser: PublicRoomBrowser
 
 @onready var back_button: Button = %BackButton
 @onready var location_label: Label = %LocationLabel
@@ -80,6 +81,12 @@ func _ready() -> void:
 	join_confirm_button.pressed.connect(_on_join_confirm_pressed)
 	join_cancel_button.pressed.connect(_on_join_cancel_pressed)
 	set_process(false)
+	_public_browser = PublicRoomBrowser.new()
+	_public_browser.visible = false
+	add_child(_public_browser)
+	_public_browser.room_selected.connect(_on_public_room_selected)
+	_public_browser.create_requested.connect(_on_public_room_create)
+	OnlineClient.connection_changed.connect(_on_online_connection_changed)
 
 func _process(delta: float) -> void:
 	_toast_left = maxf(0.0, _toast_left - delta)
@@ -190,18 +197,7 @@ func _on_real_button_pressed() -> void:
 func _on_create_room_pressed() -> void:
 	if state != ScreenState.REAL_EXPANDED:
 		return
-	_set_state(ScreenState.CREATING)
-	# Let the "방을 만드는 중…" label draw for one frame.
-	await get_tree().process_frame
-	if not is_inside_tree() or state != ScreenState.CREATING:
-		return
-	var err: Error = Session.host_game(Session.local_name)
-	if err == OK:
-		_exit_to(StartGameExitResult.Route.LOBBY, ScreenTypes.RoomMode.ONLINE, ScreenTypes.Role.HOST)
-	else:
-		_show_toast(Session.toast)
-		Session.toast = ""
-		_set_state(ScreenState.IDLE)
+	_public_browser.open()
 
 # 훈련장 -------------------------------------------------------------------------
 
@@ -216,12 +212,21 @@ func _on_training_pressed() -> void:
 func _on_join_room_pressed() -> void:
 	if state != ScreenState.REAL_EXPANDED:
 		return
-	Session.join_error = ""
-	join_error = JoinError.NONE
-	address_field.text = _initial_address()
-	_set_state(ScreenState.JOIN_EDITING)
-	address_field.grab_focus()
-	address_field.select_all()
+	_public_browser.open()
+
+func _on_public_room_selected(target_room_id: String) -> void:
+	if target_room_id.is_empty():
+		return
+	OnlineClient.join_room(target_room_id, Session.local_name)
+	_show_toast("방에 연결하는 중…")
+
+func _on_public_room_create(room_name: String) -> void:
+	OnlineClient.create_room(room_name, Session.local_name)
+	_show_toast("공개 방을 만드는 중…")
+
+func _on_online_connection_changed(connected: bool) -> void:
+	if connected:
+		_show_toast("공개 방에 연결되었습니다. F3에서 연결 상태를 볼 수 있습니다.")
 
 func _initial_address() -> String:
 	if not Session.last_address.is_empty():

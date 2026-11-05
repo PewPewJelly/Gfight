@@ -93,7 +93,7 @@ func check_start_game() -> void:
 	describe("게임하기 (실전 펼침)", [
 		"실전 아이콘이 강조색으로 바뀌고 아래에 [%s] [%s]이 나타남" % [start.join_room_button.text, start.create_room_button.text],
 	])
-	# Address parsing (Docs/01 §5).
+	# Legacy ENet address parsing remains valid while the new public lobby is introduced.
 	var parsed: Dictionary = session.parse_address("")
 	check(parsed.ok and parsed.host == "127.0.0.1" and parsed.port == 27840, "Empty address uses local default")
 	parsed = session.parse_address("192.168.0.5:30000")
@@ -102,25 +102,16 @@ func check_start_game() -> void:
 	check(parsed.ok and parsed.port == 27840, "IP alone uses default port")
 	for bad in ["1.2.3.4:abc", "1.2.3.4:70000", "a:b:c", ":27840"]:
 		check(not session.parse_address(bad).ok, "Rejects bad address %s" % bad)
-	session.last_address = ""
 	start._on_join_room_pressed()
-	check(start.join_popup.visible and start.state == start.ScreenState.JOIN_EDITING, "방 참여 opens the address popup")
-	check(start.address_field.text == "%s:27840" % session.local_ipv4(), "Without a saved address the popup starts with this computer's IP:port")
-	var first_address: String = start.address_field.text
-	start.address_field.text = "1.2.3.4:abc"
-	start._on_join_confirm_pressed()
-	check(start.state == start.ScreenState.JOIN_INVALID and start.join_error_label.text == UiStyle.BAD_ADDRESS, "Bad address shows the format error")
-	check(start.address_field.text == "1.2.3.4:abc", "Popup keeps the typed address after an error")
-	describe("방 참여 팝업", [
-		"제목 \"%s\", 주소 칸 처음 값 \"%s\" (전체 선택)" % [start.join_title.text, first_address],
-		"버튼: [%s] [%s]" % [start.join_cancel_button.text, start.join_confirm_button.text],
-		"\"1.2.3.4:abc\" 입력 후 확인 → 글자 빨강, 아래 오류 \"%s\" (네트워크 요청 없음)" % start.join_error_label.text,
+	check(start._public_browser.visible, "방 참여 opens the public room browser")
+	check(not start._public_browser._refresh_timer.is_stopped(), "Public room browser refreshes every three seconds")
+	describe("공개 방 목록", [
+		"공개 방 이름·현재 인원·상태를 표시",
+		"방을 클릭해 참가하며 3초마다 자동 갱신",
+		"방 이름 입력 후 공개 방 생성",
 	])
-	start.address_field.text = "1.2.3.5"
-	start.address_field.text_changed.emit("1.2.3.5")
-	check(start.state == start.ScreenState.JOIN_EDITING and start.join_error_label.text.is_empty(), "Typing clears the error")
-	start._on_join_cancel_pressed()
-	check(not start.join_popup.visible, "취소 closes the popup")
+	start._public_browser.close()
+	check(not start._public_browser.visible, "닫기 closes the public room browser")
 	start._on_back_pressed()
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "← returns to the main menu")
@@ -131,11 +122,11 @@ func check_start_game() -> void:
 
 func check_online_lobby() -> void:
 	var start: Control = router.current
-	start._on_real_button_pressed()
-	start._on_create_room_pressed()
-	check(start.create_room_button.text == UiStyle.CREATING and start.create_room_button.disabled, "방 생성 shows 방을 만드는 중…")
-	await frames(2)
-	check(router.current_id == ScreenTypes.ScreenId.LOBBY, "방 생성 opens the lobby")
+	var err: Error = session.host_game(session.local_name)
+	check(err == OK, "Legacy ENet host path remains available during migration")
+	start._exit_to(StartGameExitResult.Route.LOBBY, ScreenTypes.RoomMode.ONLINE, ScreenTypes.Role.HOST)
+	await frames(1)
+	check(router.current_id == ScreenTypes.ScreenId.LOBBY, "Hosted room opens the lobby")
 	var lobby: Control = router.current
 	check(session.room.mode == ScreenTypes.RoomMode.ONLINE and session.is_host(), "Host owns an online room")
 	check(lobby.room_name_label.text == UiStyle.ROOM_UNNAMED and lobby.info_button.visible, "Unnamed room shows 이름 없는 방 with (i)")
