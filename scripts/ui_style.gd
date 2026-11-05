@@ -59,13 +59,32 @@ const LOBBY_BANNER := Color("2b2b2b")
 const LOBBY_SLIDER := Color("e0a820")
 const LOBBY_DIMMER := Color(0.102, 0.102, 0.102, 0.5)
 
-# Main menu (SYS-00 not written yet: buttons from Docs/01 decision 1).
+# Main menu (Figma "S1 Main Menu", 2026-11-05). English items with the Korean name beside them.
 const TITLE := "Gfight"
 const MENU_PLAY := "게임하기"
 const MENU_GUIDEBOOK := "가이드북"
 const MENU_SETTINGS := "설정"
 const QUIT := "게임 종료"
 const COMING_SOON := "준비 중입니다."
+const MAIN_TITLE_ART := "GFIGHT"
+const MAIN_ITEM_PLAY := "PLAY"
+const MAIN_ITEM_GUIDEBOOK := "GUIDEBOOK"
+const MAIN_ITEM_SETTINGS := "SETTINGS"
+## Bottom-right command hint per item. Only PLAY's copy comes from the Figma mock; the other
+## two are placeholders until 가이드북 / 설정 have screens.
+const MAIN_HINT_PLAY := "Start a Match"
+const MAIN_HINT_PLAY_SUB := "게임하기 · 실전 / 훈련장"
+const MAIN_HINT_GUIDEBOOK := "Read the Guide"
+const MAIN_HINT_SETTINGS := "Change Settings"
+const MAIN_HINT_SOON_SUB := "%s · 준비 중"
+const MAIN_KEY_ENTER := "Enter"
+const MAIN_KEY_ESC := "Esc"
+const MAIN_KEY_CONFIRM := "Confirm"
+const MAIN_KEY_CLOSE := "Close"
+const MAIN_INK := Color("141416")
+const MAIN_BROWN := Color("3a2a08")
+const MAIN_YELLOW := Color("eba823")
+const MAIN_SELECTED_TEXT := Color.WHITE
 
 # SYS-01 게임하기 (Docs/01 §3.1).
 const PLAY_TITLE := "게임하기"
