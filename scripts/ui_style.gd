@@ -73,7 +73,7 @@ const MAIN_ITEM_SETTINGS := "SETTINGS"
 ## Bottom-right command hint per item. Only PLAY's copy comes from the Figma mock; the other
 ## two are placeholders until 가이드북 / 설정 have screens.
 const MAIN_HINT_PLAY := "Start a Match"
-const MAIN_HINT_PLAY_SUB := "게임하기 · 실전 / 훈련장"
+const MAIN_HINT_PLAY_SUB := "게임하기 · 온라인 / 훈련장"
 const MAIN_HINT_GUIDEBOOK := "Read the Guide"
 const MAIN_HINT_SETTINGS := "Change Settings"
 const MAIN_HINT_SOON_SUB := "%s · 준비 중"
@@ -81,14 +81,26 @@ const MAIN_KEY_ENTER := "Enter"
 const MAIN_KEY_ESC := "Esc"
 const MAIN_KEY_CONFIRM := "Confirm"
 const MAIN_KEY_CLOSE := "Close"
+const MAIN_KEY_BACK := "Back"
 const MAIN_INK := Color("141416")
 const MAIN_BROWN := Color("3a2a08")
 const MAIN_YELLOW := Color("eba823")
 const MAIN_SELECTED_TEXT := Color.WHITE
+## Torn paper edge and Korean captions of the PLAY submenu.
+const MAIN_PAPER := Color("fff4d6")
 
-# SYS-01 게임하기 (Docs/01 §3.1).
-const PLAY_TITLE := "게임하기"
-const MODE_REAL := "실전"
+# PLAY submenu (Figma "S1 Main Menu - Play state", 2026-11-05): one torn hole per mode.
+const MAIN_ITEM_ONLINE := "ONLINE"
+const MAIN_ITEM_TRAINING := "TRAINING"
+const MENU_ONLINE := "온라인"
+const MAIN_HINT_CHOOSE := "Choose a Mode"
+const MAIN_HINT_CHOOSE_SUB := "게임하기 · 온라인 / 훈련장"
+
+# Online placeholder screen (temporary until the online screen is designed). Room create /
+# join behave as in Docs/01 §3–5.
+const ONLINE_TITLE := "온라인"
+const ONLINE_TEMP_TAG := "임시 화면"
+const ONLINE_TEMP_NOTE := "온라인 화면은 아직 준비 중입니다. 그동안 여기서 방을 만들거나 주소로 참여할 수 있습니다."
 const MODE_TRAINING := "훈련장"
 const JOIN_ROOM := "방 참여"
 const CREATE_ROOM := "방 생성"

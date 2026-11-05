@@ -763,7 +763,7 @@ func _on_session_changed() -> void:
 		Session.Phase.MENU:
 			var notice := Session.toast
 			Session.toast = ""
-			_exit_to(LobbyExitResult.Route.START_GAME, notice)
+			_exit_to(LobbyExitResult.Route.MENU, notice)
 			return
 		Session.Phase.PLAYING:
 			_exit_to(LobbyExitResult.Route.MATCH, "", Session.match_setup)

@@ -1,13 +1,14 @@
-class_name StartGameScreen
+class_name OnlineScreen
 extends Control
-## SYS-01 게임하기 (Docs/01): 실전 (방 참여 / 방 생성) and 훈련장.
+## Temporary online screen. The PLAY submenu's ONLINE opens it until the real online screen is
+## designed. It keeps the online features of the removed 게임하기 screen (Docs/01): 방 생성 and
+## 방 참여 (address popup, format error, connection errors), plus the room-closed toast.
 ## Logic handlers change state; _apply_state() is the only place that changes what is shown.
 
-signal exit_requested(result: StartGameExitResult)
+signal exit_requested(result: OnlineExitResult)
 
 enum ScreenState {
-	IDLE,            # 실전 sub buttons hidden
-	REAL_EXPANDED,   # mouse over 실전: [방 참여][방 생성] shown
+	IDLE,            # buttons available
 	CREATING,        # [방 생성] waiting for Session.host_game
 	JOIN_EDITING,    # address popup open
 	JOIN_INVALID,    # format error shown (no network request)
@@ -17,9 +18,7 @@ enum ScreenState {
 }
 enum JoinError { NONE, BAD_FORMAT, NOT_FOUND, ROOM_FULL, IN_PROGRESS, VERSION_MISMATCH }
 
-const HOVER_CLOSE_DELAY: float = 0.15
 const TOAST_SECONDS: float = 3.0
-const SUBMENU_FADE_SECONDS: float = 0.12
 const FADE_SECONDS: float = 0.2
 const JOIN_ERROR_TEXT: Dictionary = {
 	JoinError.NONE: "",
@@ -29,25 +28,19 @@ const JOIN_ERROR_TEXT: Dictionary = {
 	JoinError.IN_PROGRESS: UiStyle.IN_PROGRESS,
 	JoinError.VERSION_MISMATCH: UiStyle.VERSION_MISMATCH,
 }
+const POPUP_STATES: Array[ScreenState] = [ScreenState.JOIN_EDITING, ScreenState.JOIN_INVALID, ScreenState.JOIN_CONNECTING, ScreenState.JOIN_FAILED]
 
 var state: ScreenState = ScreenState.IDLE
 var join_error: JoinError = JoinError.NONE
-## Generation number that cancels a pending hover-close.
-var _collapse_ticket: int = 0
 var _toast_left: float = 0.0
 
 @onready var back_button: Button = %BackButton
-@onready var location_label: Label = %LocationLabel
-@onready var real_area: Control = %RealArea
-@onready var real_button: Button = %RealButton
-@onready var real_icon: TextureRect = %RealIcon
-@onready var real_label: Label = %RealLabel
-@onready var real_sub_menu: VBoxContainer = %RealSubMenu
-@onready var join_room_button: Button = %JoinRoomButton
+@onready var title_label: Label = %TitleLabel
+@onready var temp_tag: PanelContainer = %TempTag
+@onready var temp_tag_label: Label = %TempTagLabel
+@onready var note_label: Label = %NoteLabel
 @onready var create_room_button: Button = %CreateRoomButton
-@onready var training_button: Button = %TrainingButton
-@onready var training_icon: TextureRect = %TrainingIcon
-@onready var training_label: Label = %TrainingLabel
+@onready var join_room_button: Button = %JoinRoomButton
 @onready var toast: PanelContainer = %Toast
 @onready var toast_label: Label = %ToastLabel
 @onready var join_popup: Control = %JoinPopup
@@ -60,21 +53,18 @@ var _toast_left: float = 0.0
 @onready var fade: ColorRect = %Fade
 
 func _ready() -> void:
-	location_label.text = UiStyle.PLAY_TITLE
-	real_label.text = UiStyle.MODE_REAL
-	training_label.text = UiStyle.MODE_TRAINING
+	title_label.text = UiStyle.ONLINE_TITLE
+	temp_tag_label.text = UiStyle.ONLINE_TEMP_TAG
+	note_label.text = UiStyle.ONLINE_TEMP_NOTE
 	join_room_button.text = UiStyle.JOIN_ROOM
 	join_title.text = UiStyle.JOIN_ADDRESS_TITLE
 	join_cancel_button.text = UiStyle.CANCEL
+	temp_tag.add_theme_stylebox_override("panel", UiStyle.box(UiStyle.PANEL_MUTED, UiStyle.TEXT_DIM, 1, 12))
 	join_panel.add_theme_stylebox_override("panel", UiStyle.box(UiStyle.PANEL, UiStyle.TEXT_DIM, 1, 14))
 	toast.add_theme_stylebox_override("panel", UiStyle.box(UiStyle.PANEL_MUTED, UiStyle.TEXT_DIM, 1, 20))
 	back_button.pressed.connect(_on_back_pressed)
-	real_area.mouse_entered.connect(_on_real_area_mouse_entered)
-	real_area.mouse_exited.connect(_on_real_area_mouse_exited)
-	real_button.pressed.connect(_on_real_button_pressed)
-	join_room_button.pressed.connect(_on_join_room_pressed)
 	create_room_button.pressed.connect(_on_create_room_pressed)
-	training_button.pressed.connect(_on_training_pressed)
+	join_room_button.pressed.connect(_on_join_room_pressed)
 	address_field.text_changed.connect(_on_address_text_changed)
 	address_field.text_submitted.connect(_on_address_submitted)
 	join_confirm_button.pressed.connect(_on_join_confirm_pressed)
@@ -87,37 +77,33 @@ func _process(delta: float) -> void:
 		toast.visible = false
 		set_process(false)
 
-func enter(data: StartGameEnterData) -> void:
+## data: OnlineEnterData or null.
+func enter(data: RefCounted) -> void:
 	state = ScreenState.IDLE
 	join_error = JoinError.NONE
 	_apply_state(state)
 	if not Session.changed.is_connected(_on_session_changed):
 		Session.changed.connect(_on_session_changed)
-	if data != null and not data.notice.is_empty():
-		_show_toast(data.notice)
+	var online_data := data as OnlineEnterData
+	if online_data != null and not online_data.notice.is_empty():
+		_show_toast(online_data.notice)
+	create_room_button.grab_focus()
 	fade.color.a = 1.0
 	create_tween().tween_property(fade, "color:a", 0.0, FADE_SECONDS)
 
 func _set_state(next: ScreenState) -> void:
 	if state == ScreenState.LEAVING:
 		return
-	var was_expanded := real_sub_menu.visible
 	state = next
 	_apply_state(next)
-	if real_sub_menu.visible and not was_expanded:
-		real_sub_menu.modulate.a = 0.0
-		create_tween().tween_property(real_sub_menu, "modulate:a", 1.0, SUBMENU_FADE_SECONDS)
 
-## Docs/01 §3.3. Display only.
+## Display only (Docs/01 §3.3 without the 실전 / 훈련장 parts).
 func _apply_state(s: ScreenState) -> void:
-	var popup_open := s in [ScreenState.JOIN_EDITING, ScreenState.JOIN_INVALID, ScreenState.JOIN_CONNECTING, ScreenState.JOIN_FAILED]
-	var all_disabled := s in [ScreenState.CREATING, ScreenState.LEAVING]
+	var popup_open := s in POPUP_STATES
+	var all_disabled := s in [ScreenState.CREATING, ScreenState.LEAVING] or popup_open
 	if s != ScreenState.LEAVING:
-		real_sub_menu.visible = s in [ScreenState.REAL_EXPANDED, ScreenState.CREATING]
 		join_popup.visible = popup_open
-	real_icon.self_modulate = UiStyle.ACCENT if s in [ScreenState.REAL_EXPANDED, ScreenState.CREATING] else UiStyle.TEXT
-	training_icon.self_modulate = UiStyle.TEXT
-	for button: Button in [back_button, real_button, join_room_button, create_room_button, training_button]:
+	for button: Button in [back_button, create_room_button, join_room_button]:
 		button.disabled = all_disabled
 	create_room_button.text = UiStyle.CREATING if s == ScreenState.CREATING else UiStyle.CREATE_ROOM
 	var connecting := s == ScreenState.JOIN_CONNECTING
@@ -129,21 +115,22 @@ func _apply_state(s: ScreenState) -> void:
 	address_field.add_theme_color_override("font_color", UiStyle.ERROR if failed else UiStyle.TEXT)
 	join_error_label.text = JOIN_ERROR_TEXT[join_error] if failed else ""
 
-func _exit_to(route: StartGameExitResult.Route, room_mode: ScreenTypes.RoomMode = ScreenTypes.RoomMode.NONE, role: ScreenTypes.Role = ScreenTypes.Role.NONE) -> void:
+func _exit_to(route: OnlineExitResult.Route, role: ScreenTypes.Role = ScreenTypes.Role.NONE) -> void:
 	_set_state(ScreenState.LEAVING)
-	var result := StartGameExitResult.new()
+	var result := OnlineExitResult.new()
 	result.route = route
-	result.room_mode = room_mode
-	result.role = role
-	result.room_address = Session.room.address if room_mode == ScreenTypes.RoomMode.ONLINE else ""
+	if route == OnlineExitResult.Route.LOBBY:
+		result.room_mode = ScreenTypes.RoomMode.ONLINE
+		result.role = role
+		result.room_address = Session.room.address
 	exit_requested.emit(result)
 
 # Back --------------------------------------------------------------------------
 
 func _on_back_pressed() -> void:
-	if state not in [ScreenState.IDLE, ScreenState.REAL_EXPANDED]:
+	if state != ScreenState.IDLE:
 		return
-	_exit_to(StartGameExitResult.Route.MAIN_MENU)
+	_exit_to(OnlineExitResult.Route.MAIN_MENU)
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
@@ -151,44 +138,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	# Handled first: going back removes this screen from the tree.
 	get_viewport().set_input_as_handled()
-	if state in [ScreenState.JOIN_EDITING, ScreenState.JOIN_INVALID, ScreenState.JOIN_CONNECTING, ScreenState.JOIN_FAILED]:
+	if state in POPUP_STATES:
 		_on_join_cancel_pressed()
-	elif state in [ScreenState.IDLE, ScreenState.REAL_EXPANDED]:
+	elif state == ScreenState.IDLE:
 		_on_back_pressed()
-
-# 실전 hover ---------------------------------------------------------------------
-
-func _on_real_area_mouse_entered() -> void:
-	_collapse_ticket += 1
-	if state == ScreenState.IDLE:
-		_set_state(ScreenState.REAL_EXPANDED)
-
-func _on_real_area_mouse_exited() -> void:
-	if state != ScreenState.REAL_EXPANDED:
-		return
-	_collapse_ticket += 1
-	var ticket := _collapse_ticket
-	await get_tree().create_timer(HOVER_CLOSE_DELAY).timeout
-	if is_inside_tree():
-		_try_collapse(ticket)
-
-func _try_collapse(ticket: int) -> void:
-	if ticket != _collapse_ticket:
-		return
-	if real_area.get_global_rect().has_point(get_global_mouse_position()):
-		return
-	if state == ScreenState.REAL_EXPANDED:
-		_set_state(ScreenState.IDLE)
-
-## Clicking expands even when no mouse_entered arrived (cursor came from outside the window).
-func _on_real_button_pressed() -> void:
-	if state == ScreenState.IDLE:
-		_set_state(ScreenState.REAL_EXPANDED)
 
 # 방 생성 ------------------------------------------------------------------------
 
 func _on_create_room_pressed() -> void:
-	if state != ScreenState.REAL_EXPANDED:
+	if state != ScreenState.IDLE:
 		return
 	_set_state(ScreenState.CREATING)
 	# Let the "방을 만드는 중…" label draw for one frame.
@@ -197,24 +155,17 @@ func _on_create_room_pressed() -> void:
 		return
 	var err: Error = Session.host_game(Session.local_name)
 	if err == OK:
-		_exit_to(StartGameExitResult.Route.LOBBY, ScreenTypes.RoomMode.ONLINE, ScreenTypes.Role.HOST)
+		_exit_to(OnlineExitResult.Route.LOBBY, ScreenTypes.Role.HOST)
 	else:
 		_show_toast(Session.toast)
 		Session.toast = ""
 		_set_state(ScreenState.IDLE)
-
-# 훈련장 -------------------------------------------------------------------------
-
-func _on_training_pressed() -> void:
-	if state not in [ScreenState.IDLE, ScreenState.REAL_EXPANDED]:
-		return
-	Session.start_training()
-	_exit_to(StartGameExitResult.Route.LOBBY, ScreenTypes.RoomMode.TRAINING, ScreenTypes.Role.HOST)
+		create_room_button.grab_focus()
 
 # 방 참여 popup ------------------------------------------------------------------
 
 func _on_join_room_pressed() -> void:
-	if state != ScreenState.REAL_EXPANDED:
+	if state != ScreenState.IDLE:
 		return
 	Session.join_error = ""
 	join_error = JoinError.NONE
@@ -253,13 +204,12 @@ func _on_join_confirm_pressed() -> void:
 	Session.join_game(parsed.host, parsed.port, Session.local_name)
 
 func _on_join_cancel_pressed() -> void:
-	if state not in [ScreenState.JOIN_EDITING, ScreenState.JOIN_INVALID, ScreenState.JOIN_CONNECTING, ScreenState.JOIN_FAILED]:
+	if state not in POPUP_STATES:
 		return
 	Session.cancel_join()
 	join_error = JoinError.NONE
-	_set_state(ScreenState.REAL_EXPANDED)
-	if not real_area.get_global_rect().has_point(get_global_mouse_position()):
-		_on_real_area_mouse_exited()
+	_set_state(ScreenState.IDLE)
+	join_room_button.grab_focus()
 
 # Session ----------------------------------------------------------------------
 
@@ -267,7 +217,7 @@ func _on_session_changed() -> void:
 	if state == ScreenState.LEAVING:
 		return
 	if state == ScreenState.JOIN_CONNECTING and Session.phase == Session.Phase.LOBBY:
-		_exit_to(StartGameExitResult.Route.LOBBY, ScreenTypes.RoomMode.ONLINE, ScreenTypes.Role.CLIENT)
+		_exit_to(OnlineExitResult.Route.LOBBY, ScreenTypes.Role.CLIENT)
 		return
 	if state == ScreenState.JOIN_CONNECTING and not Session.join_error.is_empty():
 		join_error = _map_join_error(Session.join_error)

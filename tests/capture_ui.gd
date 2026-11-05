@@ -32,19 +32,24 @@ func run() -> void:
 	await capture("01_main_menu")
 	router.current.select(router.current.Item.SETTINGS)
 	await capture("01b_main_menu_settings")
-	router.current.select(router.current.Item.PLAY)
-	router.current.confirm()
+	var menu: Control = router.current
+	menu.select(menu.Item.PLAY)
+	menu._end_sweep()
+	menu.open_play_menu(menu.PlayItem.ONLINE, false)
+	await capture("02_play_menu_online")
+	menu.select_mode(menu.PlayItem.TRAINING)
+	await capture("02b_play_menu_training")
+	menu.select_mode(menu.PlayItem.ONLINE)
+	menu.confirm_mode()
 	await process_frame
-	var start: Control = router.current
-	start.fade.color.a = 0.0
-	await capture("02_start_game")
-	start._on_real_button_pressed()
-	await capture("03_start_game_real")
-	start._on_join_room_pressed()
-	start.address_field.text = "1.2.3.4:abc"
-	start._on_join_confirm_pressed()
+	var online: Control = router.current
+	online.fade.color.a = 0.0
+	await capture("03_online_temp")
+	online._on_join_room_pressed()
+	online.address_field.text = "1.2.3.4:abc"
+	online._on_join_confirm_pressed()
 	await capture("04_join_popup_error")
-	start._on_join_cancel_pressed()
+	online._on_join_cancel_pressed()
 	# Online lobby as the host with two guests (stand-ins: the host's room is filled directly).
 	session._open_room(ScreenTypes.RoomMode.ONLINE, "192.168.0.5:27840")
 	session.room.name = "금요일 난투"

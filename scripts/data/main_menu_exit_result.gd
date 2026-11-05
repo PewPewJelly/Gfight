@@ -1,6 +1,7 @@
 class_name MainMenuExitResult
 extends RefCounted
-## Leaving the main menu (SYS-00 is not written yet: only [게임하기] leads anywhere).
+## Leaving the main menu from the PLAY submenu (SYS-00 is not written yet: only PLAY leads
+## anywhere). TRAINING has already opened the training room through Session.start_training().
 
-enum Route { START_GAME }
-var route: Route = Route.START_GAME
+enum Route { ONLINE, TRAINING }
+var route: Route = Route.ONLINE

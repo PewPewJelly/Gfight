@@ -12,6 +12,8 @@
 [ext_resource type="FontFile" path="res://resources/fonts/files/BarlowCondensed-SemiBoldItalic.ttf" id="11_barlow_semibold_italic"]
 [ext_resource type="FontFile" path="res://resources/fonts/files/BarlowCondensed-ExtraBoldItalic.ttf" id="12_barlow_extrabold_italic"]
 [ext_resource type="Texture2D" path="res://assets/main_menu/player_photo.webp" id="13_photo"]
+[ext_resource type="Texture2D" path="res://assets/main_menu/play_hole_online.svg" id="14_hole_online"]
+[ext_resource type="Texture2D" path="res://assets/main_menu/play_hole_training.svg" id="15_hole_training"]
 
 [sub_resource type="Gradient" id="Gradient_bg"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -325,6 +327,120 @@ theme_override_colors/font_color = Color(0.22745098, 0.16470589, 0.03137255, 1)
 theme_override_fonts/font = ExtResource("9_noto_bold")
 theme_override_font_sizes/font_size = 25
 text = "설정"
+
+[node name="PlaySubmenu" type="Control" parent="Canvas"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+mouse_filter = 2
+
+[node name="OnlineHole" type="Control" parent="Canvas/PlaySubmenu"]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Art" type="TextureRect" parent="Canvas/PlaySubmenu/OnlineHole"]
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 1080.0
+mouse_filter = 2
+texture = ExtResource("14_hole_online")
+expand_mode = 1
+
+[node name="Face" type="Control" parent="Canvas/PlaySubmenu/OnlineHole"]
+layout_mode = 0
+offset_left = 1205.0
+offset_top = 102.0
+offset_right = 1205.0
+offset_bottom = 102.0
+rotation = -0.15708
+mouse_filter = 2
+
+[node name="HitArea" type="Control" parent="Canvas/PlaySubmenu/OnlineHole/Face"]
+layout_mode = 0
+offset_left = -5.2
+offset_top = -17.9
+offset_right = 576.9
+offset_bottom = 139.9
+mouse_default_cursor_shape = 2
+
+[node name="Marker" type="Polygon2D" parent="Canvas/PlaySubmenu/OnlineHole/Face"]
+color = Color(0.92156863, 0.65882355, 0.13725491, 1)
+polygon = PackedVector2Array(3, 50.1, 3, 70.9, 21, 60.5)
+
+[node name="Word" type="Label" parent="Canvas/PlaySubmenu/OnlineHole/Face"]
+layout_mode = 0
+offset_left = 58.0
+offset_top = 10.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.92156863, 0.65882355, 0.13725491, 1)
+theme_override_fonts/font = ExtResource("7_barlow_black_italic")
+theme_override_font_sizes/font_size = 84
+text = "ONLINE"
+
+[node name="Ko" type="Label" parent="Canvas/PlaySubmenu/OnlineHole/Face"]
+layout_mode = 0
+offset_left = 283.85
+offset_top = 58.76
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.95686275, 0.8392157, 1)
+theme_override_fonts/font = ExtResource("9_noto_bold")
+theme_override_font_sizes/font_size = 24
+text = "온라인"
+
+[node name="TrainingHole" type="Control" parent="Canvas/PlaySubmenu"]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Art" type="TextureRect" parent="Canvas/PlaySubmenu/TrainingHole"]
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 1080.0
+mouse_filter = 2
+texture = ExtResource("15_hole_training")
+expand_mode = 1
+
+[node name="Face" type="Control" parent="Canvas/PlaySubmenu/TrainingHole"]
+layout_mode = 0
+offset_left = 1265.49
+offset_top = 266.56
+offset_right = 1265.49
+offset_bottom = 266.56
+rotation = -0.15708
+mouse_filter = 2
+
+[node name="HitArea" type="Control" parent="Canvas/PlaySubmenu/TrainingHole/Face"]
+layout_mode = 0
+offset_left = -6.3
+offset_top = -12.5
+offset_right = 506.7
+offset_bottom = 137.6
+mouse_default_cursor_shape = 2
+
+[node name="Marker" type="Polygon2D" parent="Canvas/PlaySubmenu/TrainingHole/Face"]
+color = Color(0.92156863, 0.65882355, 0.13725491, 1)
+polygon = PackedVector2Array(3, 50.1, 3, 70.9, 21, 60.5)
+
+[node name="Word" type="Label" parent="Canvas/PlaySubmenu/TrainingHole/Face"]
+layout_mode = 0
+offset_left = 58.0
+offset_top = 10.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("7_barlow_black_italic")
+theme_override_font_sizes/font_size = 84
+text = "TRAINING"
+
+[node name="Ko" type="Label" parent="Canvas/PlaySubmenu/TrainingHole/Face"]
+layout_mode = 0
+offset_left = 362.0
+offset_top = 59.12
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.95686275, 0.8392157, 1)
+theme_override_fonts/font = ExtResource("9_noto_bold")
+theme_override_font_sizes/font_size = 24
+text = "훈련장"
 
 [node name="HintCorner" type="Control" parent="."]
 unique_name_in_owner = true

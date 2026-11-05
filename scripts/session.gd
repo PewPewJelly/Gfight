@@ -40,7 +40,7 @@ var catalog: ContentCatalog = preload("res://resources/content_catalog.tres")
 var match_setup: MatchSetup
 ## Result confirmations (S4 Enter) by peer id.
 var confirmed: Dictionary = {}
-## 게임하기 toast (create failure, host lost, room closed, kicked). Cleared when read by the UI.
+## Online screen toast (create failure, host lost, room closed, kicked). Cleared when read by the UI.
 var toast: String = ""
 ## Join popup error; the popup stays open with the address kept.
 var join_error: String = ""
@@ -70,7 +70,7 @@ func _ready() -> void:
 static func game_version() -> String:
 	return str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
 
-## Parses "IP" or "IP:port". Empty input means the local default address; the 게임하기
+## Parses "IP" or "IP:port". Empty input means the local default address; the online
 ## screen rejects empty input itself before calling this (Docs/01 §2.4).
 static func parse_address(text: String) -> Dictionary:
 	var value := text.strip_edges()
