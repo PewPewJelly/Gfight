@@ -26,10 +26,20 @@ func run() -> void:
 		progress_ready = ready
 		progress_total = total
 	)
+	check(client._debug_panel.visible, "Multiplayer log is visible by default")
+	var toggle_key := InputEventKey.new()
+	toggle_key.physical_keycode = KEY_L
+	toggle_key.pressed = true
+	client._unhandled_key_input(toggle_key)
+	check(not client._debug_panel.visible, "L hides the multiplayer log")
+	client._unhandled_key_input(toggle_key)
+	check(client._debug_panel.visible, "L shows the multiplayer log again")
 
 	var ice_servers: Array = client.ICE_CONFIGURATION.get("iceServers", [])
 	check(not ice_servers.is_empty(), "WebRTC has an ICE server configuration")
 	check(str(ice_servers[0]).contains("stun.cloudflare.com:3478"), "Cloudflare STUN is configured")
+	client.send_game_packet({"type": "input", "latest_tick": 12, "recent": []})
+	check(client._sent_input_packets == 1 and client._last_sent_input_tick == 12, "Input send stats are recorded")
 
 	client._queue_match_start({
 		"type": "match_start",

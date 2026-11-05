@@ -193,7 +193,7 @@ Windows에서는 전체 테스트를 한 번에 실행할 수 있다.
 
 - Godot 4.7.2 Windows: combat, gameplay, rollback, UI flow 검사 실패 0건.
 - Cloudflare 공개 STUN `stun.cloudflare.com:3478`을 사용하고, 모든 DataChannel이 열린 뒤에만 시작 버튼과 전투 진입을 허용한다.
-- P2P 연결 상태는 F3 로그에 표시하며 15초 안에 열리지 않으면 전투를 시작하지 않고 대기방으로 복귀한다.
+- 왼쪽 위 멀티 로그는 기본 표시되고 L로 숨김/표시한다. P2P 상태와 열린 채널 수, 송수신 입력 수·마지막 틱을 보여 준다. 시작 신호 뒤 15초 안에 채널이 열리지 않으면 전투를 시작하지 않고 대기방으로 복귀한다.
 - 로컬 Room Durable Object에 WebSocket 4명을 연결해 방 설정·채팅·준비·경기 시작·로비 복귀·강퇴를 검증했다.
 - Godot 프로세스 4개가 각각 다른 3명과 WebRTC DataChannel을 열고 입력 패킷을 수신했다.
 - 운영 Cloudflare 방에 연결한 Godot 프로세스 2개가 STUN 설정으로 240틱을 실행한 뒤 같은 상태 해시 `3674258876`을 냈다.

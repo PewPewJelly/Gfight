@@ -19,6 +19,7 @@ const DEFAULT_HTTP_BASE := "https://gfight-multi-server.gfight-multi-server.work
 const DEFAULT_WS_BASE := "wss://gfight-multi-server.gfight-multi-server.workers.dev"
 const LOG_LIMIT := 40
 const MATCH_CONNECT_TIMEOUT_MSEC := 15000
+const DEBUG_REFRESH_MSEC := 250
 const ICE_CONFIGURATION := {
 	"iceServers": [
 		{"urls": ["stun:stun.cloudflare.com:3478"]}
@@ -41,6 +42,12 @@ var _pending_match_start: Dictionary = {}
 var _match_connect_deadline_msec := 0
 var _last_match_progress := ""
 var _last_mesh_status := ""
+var _sent_input_packets := 0
+var _last_sent_input_tick := -1
+var _received_input_packets: Dictionary = {}
+var _last_received_input_tick: Dictionary = {}
+var _last_received_input_msec: Dictionary = {}
+var _last_debug_refresh_msec := 0
 
 func _ready() -> void:
 	_build_debug_overlay()
@@ -77,6 +84,11 @@ func join_room(target_room_id: String, display_name: String) -> void:
 func disconnect_room() -> void:
 	_clear_pending_match()
 	_last_mesh_status = ""
+	_sent_input_packets = 0
+	_last_sent_input_tick = -1
+	_received_input_packets.clear()
+	_last_received_input_tick.clear()
+	_last_received_input_msec.clear()
 	for remote_id: String in connections.keys():
 		_close_peer(remote_id)
 	connections.clear()
@@ -113,6 +125,9 @@ func return_lobby() -> void:
 	_send_signal_message({"type": "return_lobby", "payload": {}})
 
 func send_game_packet(message: Dictionary) -> void:
+	if str(message.get("type", "")) == "input":
+		_sent_input_packets += 1
+		_last_sent_input_tick = int(message.get("latest_tick", -1))
 	var packet := var_to_bytes(message)
 	for remote_id: String in connections:
 		var channel: WebRTCDataChannel = connections[remote_id].channel
@@ -167,11 +182,14 @@ func _process(_delta: float) -> void:
 			if message is Dictionary:
 				var message_dict: Dictionary = message
 				message_type = str(message_dict.get("type", ""))
+				if message_type == "input":
+					_record_received_input(remote_id, message_dict)
 			if message_type != "input":
 				_log("data <- %s %s" % [remote_id.left(6), str(message).left(80)])
 			data_received.emit(remote_id, message)
 	_emit_mesh_status_if_changed()
 	_update_pending_match()
+	_update_debug_stats_if_due()
 
 func _handle_server_message(text: String) -> void:
 	var parsed: Variant = JSON.parse_string(text)
@@ -378,6 +396,11 @@ func _peer_state_name(state: int) -> String:
 			return "CLOSED"
 	return "UNKNOWN(%d)" % state
 
+func _record_received_input(remote_id: String, message: Dictionary) -> void:
+	_received_input_packets[remote_id] = int(_received_input_packets.get(remote_id, 0)) + 1
+	_last_received_input_tick[remote_id] = int(message.get("latest_tick", -1))
+	_last_received_input_msec[remote_id] = Time.get_ticks_msec()
+
 func _send_signal_message(value: Dictionary) -> void:
 	if socket.get_ready_state() != WebSocketPeer.STATE_OPEN:
 		return
@@ -432,7 +455,7 @@ func _build_debug_overlay() -> void:
 	_debug_panel.position = Vector2(12, 12)
 	_debug_panel.custom_minimum_size = Vector2(470, 210)
 	_debug_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_debug_panel.visible = false
+	_debug_panel.visible = true
 	layer.add_child(_debug_panel)
 	_debug_label = Label.new()
 	_debug_label.add_theme_font_size_override("font_size", 13)
@@ -442,8 +465,10 @@ func _build_debug_overlay() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo and key.physical_keycode == KEY_F3:
+	if key != null and key.pressed and not key.echo and key.physical_keycode == KEY_L:
 		_debug_panel.visible = not _debug_panel.visible
+		if _debug_panel.visible:
+			_update_debug_text()
 
 func _log(text: String) -> void:
 	var stamp := Time.get_time_string_from_system()
@@ -455,5 +480,33 @@ func _log(text: String) -> void:
 func _update_debug_text() -> void:
 	if _debug_label == null:
 		return
-	var header := "MULTIPLAYER DEBUG [F3]\nroom=%s  me=%s  peers=%d" % [room_id.left(8), local_player_id.left(6), connections.size()]
-	_debug_label.text = header + "\n" + "\n".join(_logs.slice(maxi(0, _logs.size() - 10)))
+	var open_count := 0
+	for entry: Dictionary in connections.values():
+		var channel: WebRTCDataChannel = entry.channel
+		if channel.get_ready_state() == WebRTCDataChannel.STATE_OPEN:
+			open_count += 1
+	var lines: Array[String] = [
+		"MULTIPLAYER LOG [L: 숨기기/표시]",
+		"room=%s  me=%s  P2P=%d/%d" % [room_id.left(8), local_player_id.left(6), open_count, connections.size()],
+		"TX input=%d  last_tick=%d" % [_sent_input_packets, _last_sent_input_tick]
+	]
+	var now := Time.get_ticks_msec()
+	for remote_id: String in _received_input_packets.keys():
+		var age := now - int(_last_received_input_msec.get(remote_id, now))
+		lines.append("RX %s input=%d  tick=%d  age=%dms" % [
+			remote_id.left(6),
+			int(_received_input_packets[remote_id]),
+			int(_last_received_input_tick.get(remote_id, -1)),
+			age
+		])
+	lines.append_array(_logs.slice(maxi(0, _logs.size() - 8)))
+	_debug_label.text = "\n".join(lines)
+
+func _update_debug_stats_if_due() -> void:
+	if not _debug_panel.visible:
+		return
+	var now := Time.get_ticks_msec()
+	if now - _last_debug_refresh_msec < DEBUG_REFRESH_MSEC:
+		return
+	_last_debug_refresh_msec = now
+	_update_debug_text()
