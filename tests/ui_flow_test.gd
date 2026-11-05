@@ -71,6 +71,12 @@ func check_main_menu() -> void:
 	check(menu.is_item_available(menu.Item.PLAY), "PLAY is available")
 	check(not menu.is_item_available(menu.Item.GUIDEBOOK) and not menu.is_item_available(menu.Item.SETTINGS), "GUIDEBOOK / SETTINGS are not built yet")
 	check(menu.hint_title.text == UiStyle.MAIN_HINT_PLAY, "PLAY shows the Start a Match hint")
+	# Intro: GFIGHT starts low and the photo starts to the right, then both settle.
+	var title_start: float = menu.title_art.position.y
+	var photo_start: float = menu.player_photo.position.x
+	await create_timer(0.8).timeout
+	check(title_start > menu.title_art.position.y and photo_start > menu.player_photo.position.x, "Intro moves GFIGHT up and the photo left")
+	check(menu.title_art.position.is_equal_approx(menu._title_rest) and menu.player_photo.position.is_equal_approx(menu._photo_rest), "Intro ends at the rest positions")
 	# Keyboard: ↓ moves down and wraps, ↑ moves back.
 	press_action(&"ui_down")
 	check(menu.selected == menu.Item.GUIDEBOOK and menu.hint_title.text == UiStyle.MAIN_HINT_GUIDEBOOK, "Down selects GUIDEBOOK")
