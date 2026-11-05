@@ -202,16 +202,37 @@ func check_online_screen() -> void:
 
 func check_online_lobby() -> void:
 	var online: Control = router.current
+	var online_client: Node = root.get_node("OnlineClient")
+	online.state = online.ScreenState.CREATING
+	online._creating_room_name = "테스트 공개방"
+	online_client.room_id = "cloud-room-a"
+	online_client.local_player_id = "host-uuid"
+	var cloud_state := {
+		"type": "room_state",
+		"host_id": "host-uuid",
+		"max_players": 4,
+		"players": [{"player_id": "host-uuid", "display_name": session.local_name,
+			"ready": false, "character_id": "", "slot": 1}],
+	}
+	online_client.room_state = cloud_state
+	online._on_room_state_updated(cloud_state)
+	await frames(1)
+	check(router.current_id == ScreenTypes.ScreenId.LOBBY, "Cloud room creator immediately opens the lobby")
+	check(session.cloud_room and session.is_host() and session.room.name == "테스트 공개방", "Creator becomes the Cloud room host")
+	# Continue the older lobby interaction checks on their fully implemented ENet transport.
+	online_client.disconnect_room()
+	session.leave()
 	var err: Error = session.host_game(session.local_name)
 	check(err == OK, "Legacy ENet host path remains available during migration")
-	var result := OnlineExitResult.new()
-	result.route = OnlineExitResult.Route.LOBBY
-	result.room_mode = ScreenTypes.RoomMode.ONLINE
-	result.role = ScreenTypes.Role.HOST
-	result.room_address = session.room.address
-	online.exit_requested.emit(result)
 	await frames(1)
-	check(router.current_id == ScreenTypes.ScreenId.LOBBY, "Hosted room opens the lobby")
+	var legacy_online: Control = router.current
+	var legacy_result := OnlineExitResult.new()
+	legacy_result.route = OnlineExitResult.Route.LOBBY
+	legacy_result.room_mode = ScreenTypes.RoomMode.ONLINE
+	legacy_result.role = ScreenTypes.Role.HOST
+	legacy_result.room_address = session.room.address
+	legacy_online.exit_requested.emit(legacy_result)
+	await frames(1)
 	var lobby: Control = router.current
 	check(session.room.mode == ScreenTypes.RoomMode.ONLINE and session.is_host(), "Host owns an online room")
 	check(lobby.room_name_label.text == UiStyle.ROOM_UNNAMED and lobby.info_button.visible, "Unnamed room shows 이름 없는 방 with (i)")

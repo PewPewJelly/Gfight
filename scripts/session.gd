@@ -47,6 +47,9 @@ var join_error: String = ""
 var last_address: String = ""
 ## Two players on one keyboard, kept for tests (no menu button).
 var local_mode: bool = false
+## True while the room roster is owned by Cloudflare/WebRTC instead of ENet.
+var cloud_room: bool = false
+var _cloud_room_name: String = ""
 var local_name: String = PlayerData.DEFAULT_NAME
 var arena: FightArena
 var input_masks: Dictionary = {}
@@ -63,6 +66,7 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(_connected)
 	multiplayer.connection_failed.connect(_connection_failed)
 	multiplayer.server_disconnected.connect(_server_left)
+	OnlineClient.room_state_updated.connect(_sync_cloud_room)
 	_rng.randomize()
 	last_address = str(load_setting("network", "last_address", ""))
 	local_name = PlayerData.clean_name(str(load_setting("player", "name", PlayerData.DEFAULT_NAME)))
@@ -165,6 +169,39 @@ func _open_room(mode: ScreenTypes.RoomMode, address: String) -> void:
 	room.add_player(PlayerData.create(1, local_name, catalog.default_character()))
 	phase = Phase.LOBBY
 
+## Opens the existing lobby UI from a Cloudflare room without starting an ENet server.
+func open_cloud_room(room_name: String, state: Dictionary) -> void:
+	leave()
+	cloud_room = true
+	_cloud_room_name = RoomState.clean_name(room_name)
+	phase = Phase.LOBBY
+	_sync_cloud_room(state)
+
+func _sync_cloud_room(state: Dictionary) -> void:
+	if not cloud_room or not state.get("players", []) is Array:
+		return
+	var next_room := RoomState.new()
+	next_room.mode = ScreenTypes.RoomMode.ONLINE
+	next_room.phase = Phase.LOBBY
+	next_room.address = OnlineClient.room_id
+	next_room.name = _cloud_room_name
+	next_room.max_players = clampi(int(state.get("max_players", MAX_PLAYERS)), RoomState.MIN_PLAYERS, MAX_PLAYERS)
+	next_room.map = catalog.default_map()
+	for value: Variant in state.get("players", []):
+		if not value is Dictionary:
+			continue
+		var player: Dictionary = value
+		var slot := clampi(int(player.get("slot", next_room.players.size() + 1)), 1, MAX_PLAYERS)
+		var character := StringName(str(player.get("character_id", "")))
+		if not catalog.is_valid_character(character):
+			character = catalog.default_character()
+		var entry := PlayerData.create(slot, str(player.get("display_name", PlayerData.DEFAULT_NAME)), character)
+		entry.is_ready = bool(player.get("ready", false))
+		next_room.add_player(entry)
+	room = next_room
+	phase = Phase.LOBBY
+	changed.emit()
+
 func join_address(text: String, player_name: String = PlayerData.DEFAULT_NAME) -> Error:
 	var parsed := parse_address(text)
 	if not parsed.ok:
@@ -201,9 +238,18 @@ func is_offline() -> bool:
 	return local_mode or training_mode
 
 func is_host() -> bool:
+	if cloud_room:
+		return not OnlineClient.local_player_id.is_empty() and str(OnlineClient.room_state.get("host_id", "")) == OnlineClient.local_player_id
 	return is_offline() or multiplayer.is_server()
 
 func my_id() -> int:
+	if cloud_room:
+		for value: Variant in OnlineClient.room_state.get("players", []):
+			if value is Dictionary:
+				var player: Dictionary = value
+				if str(player.get("player_id", "")) == OnlineClient.local_player_id:
+					return int(player.get("slot", 1))
+		return 1
 	return 1 if is_offline() else multiplayer.get_unique_id()
 
 func slot_of(id: int) -> int:
@@ -219,6 +265,9 @@ func all_ready() -> bool:
 ## Online: two or more players and every participant ready. Training: always (Docs/02 §1.1).
 func can_start() -> bool:
 	if phase != Phase.LOBBY or not is_host() or catalog.characters.is_empty() or catalog.maps.is_empty():
+		return false
+	# Cloud rooms reach the lobby now; starting waits for rollback/WebRTC match synchronization.
+	if cloud_room:
 		return false
 	if training_mode:
 		return true
@@ -264,6 +313,9 @@ func set_ready(value: bool) -> void:
 	if me != null:
 		me.is_ready = value
 	changed.emit()
+	if cloud_room:
+		OnlineClient.set_ready(value)
+		return
 	_request_ready.rpc_id(1, value)
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -279,6 +331,11 @@ func _request_ready(value: bool) -> void:
 
 func set_character(pick: StringName) -> void:
 	if phase != Phase.LOBBY or not catalog.is_valid_character(pick):
+		return
+	if cloud_room:
+		if _apply_character(my_id(), pick):
+			changed.emit()
+			OnlineClient.set_character(String(pick))
 		return
 	if is_host():
 		if _apply_character(my_id(), pick):
@@ -420,6 +477,10 @@ func _kicked() -> void:
 
 ## Lobby [나가기]. The host closes the room for everyone; a participant just leaves.
 func leave_room() -> void:
+	if cloud_room:
+		OnlineClient.disconnect_room()
+		leave()
+		return
 	if phase != Phase.LOBBY or is_offline() or not multiplayer.is_server() or multiplayer.get_peers().is_empty():
 		leave()
 		return
@@ -453,6 +514,8 @@ func leave() -> void:
 	input_times.clear()
 	_chat_times.clear()
 	local_mode = false
+	cloud_room = false
+	_cloud_room_name = ""
 	changed.emit()
 
 func cancel_join() -> void:
@@ -535,6 +598,8 @@ func _register(player_name: String, version: String) -> void:
 ## The notice rides along once; later updates carry "" so the lobby toast is not repeated.
 func _publish_lobby() -> void:
 	changed.emit()
+	if cloud_room:
+		return
 	if not is_offline():
 		_lobby_state.rpc(room.to_dict())
 	room.notice = ""

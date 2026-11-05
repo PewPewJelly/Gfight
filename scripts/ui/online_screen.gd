@@ -13,6 +13,7 @@ const MAX_PLAYERS: int = 4
 
 var state: ScreenState = ScreenState.IDLE
 var _toast_left: float = 0.0
+var _creating_room_name: String = ""
 
 @onready var back_button: Button = %BackButton
 @onready var refresh_button: Button = %RefreshButton
@@ -162,6 +163,7 @@ func _on_create_room_pressed() -> void:
 		room_name_field.grab_focus()
 		return
 	state = ScreenState.CREATING
+	_creating_room_name = room_name
 	_apply_state()
 	OnlineClient.create_room(room_name, Session.local_name)
 	_show_toast("공개 방을 만드는 중...")
@@ -181,13 +183,26 @@ func _on_connection_changed(connected: bool) -> void:
 		state = ScreenState.IDLE
 		_apply_state()
 
-func _on_room_state_updated(_room_state: Dictionary) -> void:
+func _on_room_state_updated(room_state: Dictionary) -> void:
+	if state == ScreenState.CREATING and not OnlineClient.local_player_id.is_empty() \
+			and str(room_state.get("host_id", "")) == OnlineClient.local_player_id:
+		Session.open_cloud_room(_creating_room_name, room_state)
+		state = ScreenState.LEAVING
+		_apply_state()
+		var result := OnlineExitResult.new()
+		result.route = OnlineExitResult.Route.LOBBY
+		result.room_mode = ScreenTypes.RoomMode.ONLINE
+		result.role = ScreenTypes.Role.HOST
+		result.room_address = OnlineClient.room_id
+		exit_requested.emit(result)
+		return
 	state = ScreenState.IDLE
 	_apply_state()
 	_show_toast("대기방 연결 완료")
 
 func _on_request_failed(message: String) -> void:
 	state = ScreenState.IDLE
+	_creating_room_name = ""
 	_apply_state()
 	refresh_button.text = "새로고침"
 	_show_toast(message)
