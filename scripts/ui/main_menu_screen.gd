@@ -4,6 +4,10 @@ extends Control
 ## 1920x1080 design units under Canvas and scaled to fit the window. Keyboard: ↑/↓ move the
 ## selection, Enter confirms, Esc closes the game. Mouse: hover selects, click confirms.
 ## 가이드북 / 설정 have no screen yet, so they can be selected but not confirmed.
+## Confirming PLAY opens the PLAY submenu (Figma "S1 Main Menu - Play state"): ONLINE and
+## TRAINING, each in its own torn hole above and right of PLAY. ↑/↓ move between them, Enter
+## confirms, Esc closes the submenu. ONLINE opens the temporary online screen; TRAINING opens
+## the training lobby directly.
 ## When the game starts, the GFIGHT title slides up and the photo slides in from the right
 ## (Figma prototype motion, played once per launch instead of looping).
 ## Every time an item is selected, the black wedge grows up from its base line behind the word
@@ -13,6 +17,7 @@ extends Control
 signal exit_requested(result: MainMenuExitResult)
 
 enum Item { PLAY, GUIDEBOOK, SETTINGS }
+enum PlayItem { ONLINE, TRAINING }
 
 const DESIGN_SIZE := Vector2(1920.0, 1080.0)
 const SWEEP_SHADER: Shader = preload("res://resources/shaders/menu_sweep.gdshader")
@@ -36,6 +41,14 @@ const WEDGE_BASE_Y: float = 590.0
 ## Wedge grow on selection (reference GIF: about 3 frames at 30 ms).
 @export var wedge_grow_duration: float = 0.09
 
+## PLAY submenu. The Figma mock is a still frame, so the opening motion is provisional: each
+## hole pops from a smaller size while fading in, the second slightly after the first.
+@export var submenu_pop_duration: float = 0.12
+@export var submenu_pop_from_scale: float = 0.85
+@export var submenu_pop_stagger: float = 0.04
+## GUIDEBOOK / SETTINGS opacity while the submenu is open (Figma: 35 %).
+@export var submenu_dim_alpha: float = 0.35
+
 ## The intro plays only the first time the menu opens after launch.
 static var _intro_played: bool = false
 
@@ -52,6 +65,10 @@ var _wedge_target: Vector2 = Vector2.ZERO
 var _sweep: Tween
 var _sweep_item: int = -1
 var _sweep_delay: float = 0.0
+var play_menu_open: bool = false
+var play_selected: PlayItem = PlayItem.ONLINE
+var _holes: Array[Control] = []
+var _submenu_tween: Tween
 
 @onready var canvas: Control = %Canvas
 @onready var hint_corner: Control = %HintCorner
@@ -64,6 +81,10 @@ var _sweep_delay: float = 0.0
 @onready var hint_sub: Label = %HintSub
 @onready var title_art: Control = %TitleArt
 @onready var player_photo: TextureRect = %PlayerPhoto
+@onready var play_submenu: Control = %PlaySubmenu
+@onready var online_hole: Control = %OnlineHole
+@onready var training_hole: Control = %TrainingHole
+@onready var esc_action: Label = %EscAction
 
 func _ready() -> void:
 	_items = [play_item, guidebook_item, settings_item]
@@ -78,10 +99,22 @@ func _ready() -> void:
 	%EnterKey.text = UiStyle.MAIN_KEY_ENTER
 	%EnterAction.text = UiStyle.MAIN_KEY_CONFIRM
 	%EscKey.text = UiStyle.MAIN_KEY_ESC
-	%EscAction.text = UiStyle.MAIN_KEY_CLOSE
+	esc_action.text = UiStyle.MAIN_KEY_CLOSE
+	_holes = [online_hole, training_hole]
+	_hole_word(PlayItem.ONLINE).text = UiStyle.MAIN_ITEM_ONLINE
+	_hole_word(PlayItem.TRAINING).text = UiStyle.MAIN_ITEM_TRAINING
+	(online_hole.get_node("Face/Ko") as Label).text = UiStyle.MENU_ONLINE
+	(training_hole.get_node("Face/Ko") as Label).text = UiStyle.MODE_TRAINING
+	for index in range(_holes.size()):
+		var face := _holes[index].get_node("Face") as Control
+		var hit := face.get_node("HitArea") as Control
+		# The hole pops around its own centre.
+		_holes[index].pivot_offset = face.get_transform() * (hit.position + hit.size * 0.5)
+		hit.mouse_entered.connect(_on_hole_mouse_entered.bind(index))
+		hit.gui_input.connect(_on_hole_gui_input.bind(index))
 	for index in range(_items.size()):
 		var word := _word(_items[index])
-		word.mouse_entered.connect(select.bind(index))
+		word.mouse_entered.connect(_on_word_mouse_entered.bind(index))
 		word.gui_input.connect(_on_word_gui_input.bind(index))
 		for label_name in ["Body", "Last"]:
 			var material := ShaderMaterial.new()
@@ -105,12 +138,32 @@ func _ready() -> void:
 	else:
 		skip_intro()
 
-func enter(_data: RefCounted) -> void:
+## data: MainMenuEnterData or null. Coming back from the online screen or the training lobby
+## reopens the PLAY submenu on the mode the player left from.
+func enter(data: RefCounted) -> void:
 	_leaving = false
+	var menu_data := data as MainMenuEnterData
+	if menu_data != null and menu_data.open_play_menu:
+		skip_intro()
+		_end_sweep()
+		open_play_menu(menu_data.play_item, false)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Confirming can remove this screen from the tree, so keep the viewport first.
 	var viewport := get_viewport()
+	if play_menu_open:
+		if event.is_action_pressed(&"ui_up", true):
+			select_mode(wrapi(play_selected - 1, 0, _holes.size()))
+		elif event.is_action_pressed(&"ui_down", true):
+			select_mode(wrapi(play_selected + 1, 0, _holes.size()))
+		elif event.is_action_pressed(&"ui_accept"):
+			confirm_mode()
+		elif event.is_action_pressed(&"ui_cancel"):
+			close_play_menu()
+		else:
+			return
+		viewport.set_input_as_handled()
+		return
 	if event.is_action_pressed(&"ui_up", true):
 		select(wrapi(selected - 1, 0, _items.size()))
 	elif event.is_action_pressed(&"ui_down", true):
@@ -130,6 +183,8 @@ func select(item: int) -> void:
 		return
 	if _has_selection and item == selected:
 		return
+	if play_menu_open:
+		close_play_menu()
 	_has_selection = true
 	_end_sweep()
 	selected = item as Item
@@ -137,23 +192,66 @@ func select(item: int) -> void:
 	# Word sizes are known only after the containers lay out.
 	_run_sweep.call_deferred(selected)
 	_apply_colors()
-	match selected:
-		Item.PLAY:
-			hint_title.text = UiStyle.MAIN_HINT_PLAY
-			hint_sub.text = UiStyle.MAIN_HINT_PLAY_SUB
-		Item.GUIDEBOOK:
-			hint_title.text = UiStyle.MAIN_HINT_GUIDEBOOK
-			hint_sub.text = UiStyle.MAIN_HINT_SOON_SUB % UiStyle.MENU_GUIDEBOOK
-		Item.SETTINGS:
-			hint_title.text = UiStyle.MAIN_HINT_SETTINGS
-			hint_sub.text = UiStyle.MAIN_HINT_SOON_SUB % UiStyle.MENU_SETTINGS
+	_update_hint()
 
-## Enter / click on the selected item. Only PLAY leads anywhere for now.
+## Enter / click on the selected item. Only PLAY leads anywhere for now: it opens the submenu.
 func confirm() -> void:
 	if _leaving or selected != Item.PLAY:
 		return
+	open_play_menu()
+
+## Shows ONLINE / TRAINING next to PLAY and dims GUIDEBOOK / SETTINGS.
+func open_play_menu(item: int = PlayItem.ONLINE, animate: bool = true) -> void:
+	if play_menu_open:
+		return
+	play_menu_open = true
+	play_submenu.visible = true
+	_apply_submenu_dim()
+	select_mode(item)
+	_update_hint()
+	if animate:
+		_pop_holes()
+
+func close_play_menu() -> void:
+	if not play_menu_open:
+		return
+	play_menu_open = false
+	if _submenu_tween != null and _submenu_tween.is_valid():
+		_submenu_tween.kill()
+	for hole in _holes:
+		hole.scale = Vector2.ONE
+		hole.modulate.a = 1.0
+	play_submenu.visible = false
+	_apply_submenu_dim()
+	_update_hint()
+
+## Moves the submenu highlight (yellow word + ▶ marker).
+func select_mode(item: int) -> void:
+	if item < 0 or item >= _holes.size():
+		push_warning("PLAY submenu item %d does not exist" % item)
+		return
+	play_selected = item as PlayItem
+	for index in range(_holes.size()):
+		var is_selected := index == play_selected
+		_hole_word(index).add_theme_color_override("font_color", UiStyle.MAIN_YELLOW if is_selected else UiStyle.MAIN_SELECTED_TEXT)
+		(_holes[index].get_node("Face/Marker") as CanvasItem).visible = is_selected
+
+## Enter / click on the selected submenu mode.
+func confirm_mode() -> void:
+	if _leaving or not play_menu_open:
+		return
 	_leaving = true
-	exit_requested.emit(MainMenuExitResult.new())
+	var result := MainMenuExitResult.new()
+	if play_selected == PlayItem.TRAINING:
+		Session.start_training()
+		result.route = MainMenuExitResult.Route.TRAINING
+	else:
+		result.route = MainMenuExitResult.Route.ONLINE
+	exit_requested.emit(result)
+
+## Text of a submenu mode's English word, for tests and screenshots.
+func mode_text(item: int) -> String:
+	return _hole_word(item).text
 
 ## Jumps the intro to its last frame (screenshots, returning to the menu).
 func skip_intro() -> void:
@@ -170,13 +268,76 @@ func item_text(item: int) -> String:
 	var word := _word(_items[item])
 	return (word.get_node("Body") as Label).text + (word.get_node("Last") as Label).text
 
+func _on_word_mouse_entered(item: int) -> void:
+	# While the submenu is open the dimmed items do not follow the mouse.
+	if not play_menu_open:
+		select(item)
+
 func _on_word_gui_input(event: InputEvent, item: int) -> void:
 	var click := event as InputEventMouseButton
 	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
 		return
+	accept_event()
+	if play_menu_open:
+		# Clicking PLAY again closes the submenu; clicking another item moves to it.
+		close_play_menu()
+		select(item)
+		return
 	select(item)
 	confirm()
+
+func _on_hole_mouse_entered(item: int) -> void:
+	if play_menu_open and not _leaving:
+		select_mode(item)
+
+func _on_hole_gui_input(event: InputEvent, item: int) -> void:
+	var click := event as InputEventMouseButton
+	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+		return
 	accept_event()
+	if not play_menu_open:
+		return
+	select_mode(item)
+	confirm_mode()
+
+func _update_hint() -> void:
+	esc_action.text = UiStyle.MAIN_KEY_BACK if play_menu_open else UiStyle.MAIN_KEY_CLOSE
+	if play_menu_open:
+		hint_title.text = UiStyle.MAIN_HINT_CHOOSE
+		hint_sub.text = UiStyle.MAIN_HINT_CHOOSE_SUB
+		return
+	match selected:
+		Item.PLAY:
+			hint_title.text = UiStyle.MAIN_HINT_PLAY
+			hint_sub.text = UiStyle.MAIN_HINT_PLAY_SUB
+		Item.GUIDEBOOK:
+			hint_title.text = UiStyle.MAIN_HINT_GUIDEBOOK
+			hint_sub.text = UiStyle.MAIN_HINT_SOON_SUB % UiStyle.MENU_GUIDEBOOK
+		Item.SETTINGS:
+			hint_title.text = UiStyle.MAIN_HINT_SETTINGS
+			hint_sub.text = UiStyle.MAIN_HINT_SOON_SUB % UiStyle.MENU_SETTINGS
+
+func _apply_submenu_dim() -> void:
+	var alpha := submenu_dim_alpha if play_menu_open else 1.0
+	for item in [Item.GUIDEBOOK, Item.SETTINGS]:
+		_items[item].modulate.a = alpha
+		_ko_labels[item].modulate.a = alpha
+
+func _pop_holes() -> void:
+	if _submenu_tween != null and _submenu_tween.is_valid():
+		_submenu_tween.kill()
+	_submenu_tween = create_tween().set_parallel(true)
+	for index in range(_holes.size()):
+		var hole := _holes[index]
+		var delay := submenu_pop_stagger * index
+		hole.scale = Vector2.ONE * submenu_pop_from_scale
+		hole.modulate.a = 0.0
+		_submenu_tween.tween_property(hole, "scale", Vector2.ONE, submenu_pop_duration) \
+			.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_submenu_tween.tween_property(hole, "modulate:a", 1.0, submenu_pop_duration * 0.5).set_delay(delay)
+
+func _hole_word(item: int) -> Label:
+	return _holes[item].get_node("Face/Word") as Label
 
 ## The wedge art is drawn for PLAY; for other items it is moved and stretched to their word.
 func _aim_wedge(item: int) -> void:

@@ -1,6 +1,6 @@
-class_name StartGameExitResult
+class_name OnlineExitResult
 extends RefCounted
-## Docs/01 §2.2.
+## Leaving the temporary online screen (fields from Docs/01 §2.2).
 
 enum Route { MAIN_MENU, LOBBY }
 var route: Route = Route.MAIN_MENU
