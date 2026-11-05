@@ -10,6 +10,9 @@ var opened_room := false
 var sent_ready := false
 var requested_start := false
 var finished := false
+var corrupt_state := false
+var corrupted := false
+var quit_at := -1.0
 var session: Node
 var client: Node
 
@@ -23,6 +26,8 @@ func _initialize() -> void:
 			expect_host = true
 		elif argument.begins_with("--server="):
 			server_url = argument.trim_prefix("--server=").trim_suffix("/")
+		elif argument == "--corrupt":
+			corrupt_state = true
 	if room_id.is_empty():
 		quit(2)
 		return
@@ -52,8 +57,14 @@ func _on_room_state(state: Dictionary) -> void:
 
 func _process(delta: float) -> bool:
 	elapsed += delta
+	if quit_at >= 0.0 and elapsed >= quit_at:
+		quit(0)
+		return false
 	if session != null and session.phase == session.Phase.PLAYING and is_instance_valid(session.arena):
 		var tick: int = session.arena.frame
+		if corrupt_state and not corrupted and tick >= 120:
+			corrupted = true
+			session.arena.fighters[0].position.x += 37.0
 		var mask := 0
 		if tick < 75:
 			mask = 2 if session.my_id() == 1 else 1
@@ -63,15 +74,19 @@ func _process(delta: float) -> bool:
 		if tick >= 240 and not finished:
 			finished = true
 			var state_hash: int = session._rollback_state_hash(session.arena.snapshot())
-			print("CLOUD_MATCH_READY name=%s host=%s frame=%d hash=%d rollbacks=%d peers=%d" % [
-				player_name, session.is_host(), tick, state_hash, session.rollback_count, client.connections.size()])
-			quit(0)
+			print("CLOUD_MATCH_READY name=%s host=%s frame=%d hash=%d rollbacks=%d desyncs=%d repairs=%d delta=%d peers=%d" % [
+				player_name, session.is_host(), tick, state_hash, session.rollback_count, session.desync_count,
+				session.repair_count, client._expected_game_tick - client._local_game_tick, client.connections.size()])
+			client.disconnect_room()
+			quit_at = elapsed + 0.5
 	elif session != null and session.phase == session.Phase.RESULT and not finished:
 		finished = true
 		var state_hash: int = session._rollback_state_hash(session.arena.snapshot())
-		print("CLOUD_MATCH_READY name=%s host=%s frame=%d hash=%d rollbacks=%d peers=%d result=true" % [
-			player_name, session.is_host(), session.arena.frame, state_hash, session.rollback_count, client.connections.size()])
-		quit(0)
+		print("CLOUD_MATCH_READY name=%s host=%s frame=%d hash=%d rollbacks=%d desyncs=%d repairs=%d delta=%d peers=%d result=true" % [
+			player_name, session.is_host(), session.arena.frame, state_hash, session.rollback_count, session.desync_count,
+			session.repair_count, client._expected_game_tick - client._local_game_tick, client.connections.size()])
+		client.disconnect_room()
+		quit_at = elapsed + 0.5
 	if elapsed > 30.0:
 		printerr("CLOUD_MATCH_TIMEOUT name=%s phase=%s room=%s peers=%d" % [player_name, session.phase if session != null else -1, opened_room, client.connections.size() if client != null else 0])
 		quit(1)

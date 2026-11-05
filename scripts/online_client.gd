@@ -20,6 +20,8 @@ const DEFAULT_WS_BASE := "wss://gfight-multi-server.gfight-multi-server.workers.
 const LOG_LIMIT := 40
 const MATCH_CONNECT_TIMEOUT_MSEC := 15000
 const DEBUG_REFRESH_MSEC := 250
+const TIME_SYNC_INTERVAL_MSEC := 1000
+const TIME_SYNC_TIMEOUT_MSEC := 3000
 const ICE_CONFIGURATION := {
 	"iceServers": [
 		{"urls": ["stun:stun.cloudflare.com:3478"]}
@@ -48,6 +50,17 @@ var _received_input_packets: Dictionary = {}
 var _last_received_input_tick: Dictionary = {}
 var _last_received_input_msec: Dictionary = {}
 var _last_debug_refresh_msec := 0
+var _time_sync_pending := false
+var _time_sync_sent_ticks_msec := 0
+var _time_sync_sent_unix_msec := 0.0
+var _next_time_sync_ticks_msec := 0
+var _server_time_offset_msec := 0.0
+var _best_time_sync_rtt_msec := 2147483647
+var _time_sync_samples := 0
+var _local_game_tick := -1
+var _expected_game_tick := -1
+var _desync_count := 0
+var _repair_count := 0
 
 func _ready() -> void:
 	_build_debug_overlay()
@@ -89,6 +102,17 @@ func disconnect_room() -> void:
 	_received_input_packets.clear()
 	_last_received_input_tick.clear()
 	_last_received_input_msec.clear()
+	_time_sync_pending = false
+	_time_sync_sent_ticks_msec = 0
+	_time_sync_sent_unix_msec = 0.0
+	_next_time_sync_ticks_msec = 0
+	_server_time_offset_msec = 0.0
+	_best_time_sync_rtt_msec = 2147483647
+	_time_sync_samples = 0
+	_local_game_tick = -1
+	_expected_game_tick = -1
+	_desync_count = 0
+	_repair_count = 0
 	for remote_id: String in connections.keys():
 		_close_peer(remote_id)
 	connections.clear()
@@ -146,16 +170,33 @@ func is_mesh_ready() -> bool:
 			return false
 	return true
 
+func has_server_time_sync() -> bool:
+	return _time_sync_samples > 0
+
+func server_time_msec() -> float:
+	return Time.get_unix_time_from_system() * 1000.0 + _server_time_offset_msec
+
+func update_game_sync_stats(local_tick: int, expected_tick: int, desyncs: int, repairs: int) -> void:
+	_local_game_tick = local_tick
+	_expected_game_tick = expected_tick
+	_desync_count = desyncs
+	_repair_count = repairs
+
+func report_sync_event(text: String) -> void:
+	_log(text)
+
 func _process(_delta: float) -> void:
 	socket.poll()
 	var state := socket.get_ready_state()
 	if state == WebSocketPeer.STATE_OPEN:
 		if not _socket_was_open:
 			_socket_was_open = true
+			_next_time_sync_ticks_msec = 0
 			_log("WebSocket connected")
 			connection_changed.emit(true)
 		while socket.get_available_packet_count() > 0:
 			_handle_server_message(socket.get_packet().get_string_from_utf8())
+		_poll_server_time_sync()
 	elif _socket_was_open and state == WebSocketPeer.STATE_CLOSED:
 		_socket_was_open = false
 		_log("WebSocket closed code=%d" % socket.get_close_code())
@@ -184,7 +225,7 @@ func _process(_delta: float) -> void:
 				message_type = str(message_dict.get("type", ""))
 				if message_type == "input":
 					_record_received_input(remote_id, message_dict)
-			if message_type != "input":
+			if message_type not in ["input", "state_hash"]:
 				_log("data <- %s %s" % [remote_id.left(6), str(message).left(80)])
 			data_received.emit(remote_id, message)
 	_emit_mesh_status_if_changed()
@@ -223,7 +264,7 @@ func _handle_server_message(text: String) -> void:
 			_log("server error: %s" % code)
 			server_error.emit(code)
 		"pong":
-			pass
+			_handle_pong(message)
 
 func _sync_mesh(players_value: Variant) -> void:
 	if local_player_id.is_empty() or not players_value is Array:
@@ -326,7 +367,7 @@ func _update_pending_match() -> void:
 		_last_match_progress = progress
 		_log("P2P ready %s" % progress)
 		match_connection_progress.emit(open_count, remote_ids.size())
-	if not remote_ids.is_empty() and open_count == remote_ids.size():
+	if not remote_ids.is_empty() and open_count == remote_ids.size() and has_server_time_sync():
 		var message := _pending_match_start.duplicate(true)
 		_clear_pending_match()
 		_log("P2P mesh ready; entering match")
@@ -400,6 +441,37 @@ func _record_received_input(remote_id: String, message: Dictionary) -> void:
 	_received_input_packets[remote_id] = int(_received_input_packets.get(remote_id, 0)) + 1
 	_last_received_input_tick[remote_id] = int(message.get("latest_tick", -1))
 	_last_received_input_msec[remote_id] = Time.get_ticks_msec()
+
+func _poll_server_time_sync() -> void:
+	var now := Time.get_ticks_msec()
+	if _time_sync_pending and now - _time_sync_sent_ticks_msec >= TIME_SYNC_TIMEOUT_MSEC:
+		_time_sync_pending = false
+		_next_time_sync_ticks_msec = now
+		_log("Cloudflare time sync timeout")
+	if _time_sync_pending or now < _next_time_sync_ticks_msec:
+		return
+	_time_sync_pending = true
+	_time_sync_sent_ticks_msec = now
+	_time_sync_sent_unix_msec = Time.get_unix_time_from_system() * 1000.0
+	_next_time_sync_ticks_msec = now + TIME_SYNC_INTERVAL_MSEC
+	_send_signal_message({"type": "ping"})
+
+func _handle_pong(message: Dictionary) -> void:
+	if not _time_sync_pending or not message.get("time") is float and not message.get("time") is int:
+		return
+	var received_ticks := Time.get_ticks_msec()
+	var rtt := maxi(0, received_ticks - _time_sync_sent_ticks_msec)
+	var midpoint_unix := _time_sync_sent_unix_msec + float(rtt) / 2.0
+	var sample_offset := float(message.time) - midpoint_unix
+	if _time_sync_samples == 0:
+		_server_time_offset_msec = sample_offset
+	elif rtt <= _best_time_sync_rtt_msec + 20:
+		_server_time_offset_msec = lerpf(_server_time_offset_msec, sample_offset, 0.25)
+	_best_time_sync_rtt_msec = mini(_best_time_sync_rtt_msec, rtt)
+	_time_sync_samples += 1
+	_time_sync_pending = false
+	if _time_sync_samples == 1:
+		_log("Cloudflare clock synced offset=%dms rtt=%dms" % [roundi(_server_time_offset_msec), rtt])
 
 func _send_signal_message(value: Dictionary) -> void:
 	if socket.get_ready_state() != WebSocketPeer.STATE_OPEN:
@@ -488,8 +560,13 @@ func _update_debug_text() -> void:
 	var lines: Array[String] = [
 		"MULTIPLAYER LOG [L: 숨기기/표시]",
 		"room=%s  me=%s  P2P=%d/%d" % [room_id.left(8), local_player_id.left(6), open_count, connections.size()],
+		"CLOCK offset=%dms  rtt=%dms  samples=%d" % [roundi(_server_time_offset_msec), 0 if _best_time_sync_rtt_msec == 2147483647 else _best_time_sync_rtt_msec, _time_sync_samples],
 		"TX input=%d  last_tick=%d" % [_sent_input_packets, _last_sent_input_tick]
 	]
+	if _local_game_tick >= 0 and _expected_game_tick >= 0:
+		lines.append("TICK local=%d expected=%d delta=%+d  DESYNC=%d REPAIR=%d" % [
+			_local_game_tick, _expected_game_tick, _expected_game_tick - _local_game_tick, _desync_count, _repair_count
+		])
 	var now := Time.get_ticks_msec()
 	for remote_id: String in _received_input_packets.keys():
 		var age := now - int(_last_received_input_msec.get(remote_id, now))

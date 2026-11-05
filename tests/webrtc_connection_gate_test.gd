@@ -40,6 +40,12 @@ func run() -> void:
 	check(str(ice_servers[0]).contains("stun.cloudflare.com:3478"), "Cloudflare STUN is configured")
 	client.send_game_packet({"type": "input", "latest_tick": 12, "recent": []})
 	check(client._sent_input_packets == 1 and client._last_sent_input_tick == 12, "Input send stats are recorded")
+	client._time_sync_pending = true
+	client._time_sync_sent_ticks_msec = Time.get_ticks_msec() - 20
+	client._time_sync_sent_unix_msec = Time.get_unix_time_from_system() * 1000.0 - 20.0
+	client._handle_pong({"type": "pong", "time": Time.get_unix_time_from_system() * 1000.0})
+	check(client.has_server_time_sync(), "Cloudflare pong establishes a server clock sample")
+	check(absi(roundi(client._server_time_offset_msec)) < 100, "Server clock offset uses the RTT midpoint")
 
 	client._queue_match_start({
 		"type": "match_start",
