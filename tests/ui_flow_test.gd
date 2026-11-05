@@ -150,7 +150,7 @@ func check_start_game() -> void:
 	start._on_back_pressed()
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "← returns to the main menu")
-	router.current.play_button.pressed.emit()
+	router.current.confirm()
 	await frames(1)
 
 # 대기방 (온라인) ----------------------------------------------------------------------

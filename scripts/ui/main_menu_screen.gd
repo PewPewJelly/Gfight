@@ -52,6 +52,8 @@ func enter(_data: RefCounted) -> void:
 	_leaving = false
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Confirming can remove this screen from the tree, so keep the viewport first.
+	var viewport := get_viewport()
 	if event.is_action_pressed(&"ui_up", true):
 		select(wrapi(selected - 1, 0, _items.size()))
 	elif event.is_action_pressed(&"ui_down", true):
@@ -62,7 +64,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().quit()
 	else:
 		return
-	get_viewport().set_input_as_handled()
+	viewport.set_input_as_handled()
 
 ## Moves the highlight (black wedge, white word, yellow last letter) and the bottom-right hint.
 func select(item: int) -> void:
