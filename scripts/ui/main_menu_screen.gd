@@ -6,12 +6,16 @@ extends Control
 ## 가이드북 / 설정 have no screen yet, so they can be selected but not confirmed.
 ## When the game starts, the GFIGHT title slides up and the photo slides in from the right
 ## (Figma prototype motion, played once per launch instead of looping).
+## The first time each item is selected, a yellow slanted band sweeps through its word (only
+## inside the letters) and leaves the last letter yellow.
 
 signal exit_requested(result: MainMenuExitResult)
 
 enum Item { PLAY, GUIDEBOOK, SETTINGS }
 
 const DESIGN_SIZE := Vector2(1920.0, 1080.0)
+const SWEEP_SHADER: Shader = preload("res://resources/shaders/menu_sweep.gdshader")
+const NO_BAND: float = -100000.0
 
 ## Intro motion in design units / seconds, from the Figma prototype (2 s timeline):
 ## title y +89 → -25 over 0–30.05 % linear, photo x +200 → 0 over 0–29.58 % ease-out.
@@ -20,6 +24,12 @@ const DESIGN_SIZE := Vector2(1920.0, 1080.0)
 @export var intro_title_duration: float = 0.601
 @export var intro_photo_from_x: float = 200.0
 @export var intro_photo_duration: float = 0.592
+
+## Selection sweep (design units / seconds). The reference GIF took about 0.3 s; this is
+## faster on purpose.
+@export var sweep_duration: float = 0.15
+@export var sweep_half_width: float = 22.0
+@export var sweep_slant: float = 0.6
 
 ## The intro plays only the first time the menu opens after launch.
 static var _intro_played: bool = false
@@ -31,6 +41,10 @@ var _ko_labels: Array[Label] = []
 var _intro: Tween
 var _title_rest: Vector2
 var _photo_rest: Vector2
+var _swept: Array[bool] = [false, false, false]
+var _sweep: Tween
+var _sweep_item: int = -1
+var _sweep_delay: float = 0.0
 
 @onready var canvas: Control = %Canvas
 @onready var hint_corner: Control = %HintCorner
@@ -62,16 +76,27 @@ func _ready() -> void:
 		var word := _word(_items[index])
 		word.mouse_entered.connect(select.bind(index))
 		word.gui_input.connect(_on_word_gui_input.bind(index))
+		for label_name in ["Body", "Last"]:
+			var material := ShaderMaterial.new()
+			material.shader = SWEEP_SHADER
+			material.set_shader_parameter("band_color", UiStyle.MAIN_YELLOW)
+			material.set_shader_parameter("band_half_width", sweep_half_width)
+			material.set_shader_parameter("slant", sweep_slant)
+			material.set_shader_parameter("keep_passed", label_name == "Last")
+			(word.get_node(label_name) as Label).material = material
 	resized.connect(_fit_canvas)
 	_fit_canvas()
-	select(Item.PLAY)
 	_title_rest = title_art.position + Vector2(0.0, intro_title_to_y)
 	_photo_rest = player_photo.position
-	if _intro_played:
-		skip_intro()
-	else:
+	var play_intro := not _intro_played
+	# PLAY is selected from the start; its sweep waits until the title has risen.
+	_sweep_delay = intro_title_duration if play_intro else 0.0
+	select(Item.PLAY)
+	if play_intro:
 		_intro_played = true
 		_play_intro()
+	else:
+		skip_intro()
 
 func enter(_data: RefCounted) -> void:
 	_leaving = false
@@ -96,15 +121,14 @@ func select(item: int) -> void:
 	if item < 0 or item >= _items.size():
 		push_warning("Main menu item %d does not exist" % item)
 		return
+	if _sweep_item != -1 and _sweep_item != item:
+		_end_sweep()
 	selected = item as Item
-	for index in range(_items.size()):
-		var is_selected := index == selected
-		var word := _word(_items[index])
-		var body := word.get_node("Body") as Label
-		var last := word.get_node("Last") as Label
-		body.add_theme_color_override("font_color", UiStyle.MAIN_SELECTED_TEXT if is_selected else UiStyle.MAIN_BROWN)
-		last.add_theme_color_override("font_color", UiStyle.MAIN_YELLOW if is_selected else UiStyle.MAIN_BROWN)
-		_ko_labels[index].add_theme_color_override("font_color", UiStyle.MAIN_INK if is_selected else UiStyle.MAIN_BROWN)
+	if not _swept[selected]:
+		_swept[selected] = true
+		_sweep_item = selected
+		_run_sweep.call_deferred(selected)
+	_apply_colors()
 	match selected:
 		Item.PLAY:
 			hint_title.text = UiStyle.MAIN_HINT_PLAY
@@ -160,6 +184,51 @@ func _place_wedge() -> void:
 	selected_wedge.pivot_offset = play_item.position
 	selected_wedge.position = target.position - play_item.position
 	selected_wedge.scale = Vector2(target_size.x / base_size.x, target_size.y / base_size.y)
+
+func _apply_colors() -> void:
+	for index in range(_items.size()):
+		var is_selected := index == selected
+		var word := _word(_items[index])
+		var body := word.get_node("Body") as Label
+		var last := word.get_node("Last") as Label
+		var last_color := UiStyle.MAIN_BROWN
+		if is_selected:
+			# While the band runs, the last letter starts white and the band paints it yellow.
+			last_color = UiStyle.MAIN_SELECTED_TEXT if index == _sweep_item else UiStyle.MAIN_YELLOW
+		body.add_theme_color_override("font_color", UiStyle.MAIN_SELECTED_TEXT if is_selected else UiStyle.MAIN_BROWN)
+		last.add_theme_color_override("font_color", last_color)
+		_ko_labels[index].add_theme_color_override("font_color", UiStyle.MAIN_INK if is_selected else UiStyle.MAIN_BROWN)
+
+func _run_sweep(item: int) -> void:
+	if _sweep_item != item or not is_inside_tree():
+		return
+	var word := _word(_items[item])
+	var last := word.get_node("Last") as Label
+	(last.material as ShaderMaterial).set_shader_parameter("offset_x", last.position.x)
+	var start := -sweep_half_width - word.size.y * sweep_slant
+	var finish := word.size.x + sweep_half_width
+	_set_band(start, item)
+	_sweep = create_tween()
+	if _sweep_delay > 0.0:
+		_sweep.tween_interval(_sweep_delay)
+		_sweep_delay = 0.0
+	_sweep.tween_method(_set_band.bind(item), start, finish, sweep_duration)
+	_sweep.finished.connect(_end_sweep)
+
+func _set_band(band_pos: float, item: int) -> void:
+	var word := _word(_items[item])
+	for label_name in ["Body", "Last"]:
+		((word.get_node(label_name) as Label).material as ShaderMaterial).set_shader_parameter("band_pos", band_pos)
+
+## Stops the band (finished or interrupted) and leaves the word in its resting colors.
+func _end_sweep() -> void:
+	if _sweep != null and _sweep.is_valid():
+		_sweep.kill()
+	if _sweep_item == -1:
+		return
+	_set_band(NO_BAND, _sweep_item)
+	_sweep_item = -1
+	_apply_colors()
 
 func _play_intro() -> void:
 	title_art.position = _title_rest + Vector2(0.0, intro_title_from_y - intro_title_to_y)

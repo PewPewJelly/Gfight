@@ -28,6 +28,7 @@ func run() -> void:
 	router = load("res://main.tscn").instantiate()
 	root.add_child(router)
 	router.current.skip_intro()
+	router.current._end_sweep()
 	await capture("01_main_menu")
 	router.current.select(router.current.Item.SETTINGS)
 	await capture("01b_main_menu_settings")
