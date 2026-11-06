@@ -1,6 +1,24 @@
-[gd_scene format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/online_screen.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/online/bonobono_background.png" id="2_bonobono"]
+[ext_resource type="Shader" path="res://resources/shaders/bonobono_rainbow.gdshader" id="3_shader"]
+[ext_resource type="FontFile" path="res://resources/fonts/files/NotoSansKR-VariableFont_wght.ttf" id="4_font"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bonobono"]
+shader = ExtResource("3_shader")
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_panel"]
+bg_color = Color(1, 0.956863, 0.768627, 0.9)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.0784314, 0.576471, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
 
 [node name="OnlineScreen" type="Control"]
 layout_mode = 3
@@ -9,9 +27,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_fonts/font = ExtResource("4_font")
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="BonobonoRainbow" type="TextureRect" parent="."]
+material = SubResource("ShaderMaterial_bonobono")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,94 +39,130 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.0627451, 0.09803922, 0.15294118, 1)
+texture = ExtResource("2_bonobono")
+expand_mode = 1
+stretch_mode = 6
 
-[node name="TopBar" type="MarginContainer" parent="."]
+[node name="Tint" type="ColorRect" parent="."]
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = 15
 anchor_right = 1.0
-offset_bottom = 92.0
-grow_horizontal = 2
-mouse_filter = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 24
-
-[node name="TopBarRow" type="HBoxContainer" parent="TopBar"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 12
-
-[node name="BackButton" type="Button" parent="TopBar/TopBarRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(44, 44)
-layout_mode = 2
-focus_mode = 0
-theme_override_font_sizes/font_size = 22
-text = "<"
-
-[node name="TitleLabel" type="Label" parent="TopBar/TopBarRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 4
-theme_override_font_sizes/font_size = 26
-
-[node name="TempTag" type="PanelContainer" parent="TopBar/TopBarRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 4
-mouse_filter = 2
-
-[node name="TempTagLabel" type="Label" parent="TopBar/TopBarRow/TempTag"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.5529412, 0.60784316, 0.6901961, 1)
-theme_override_font_sizes/font_size = 16
-
-[node name="Center" type="VBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -90.0
-offset_right = 320.0
-offset_bottom = 90.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 36
-alignment = 1
+color = Color(1, 1, 1, 0.12)
 
-[node name="NoteLabel" type="Label" parent="Center"]
-unique_name_in_owner = true
+[node name="Content" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 54
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 54
+theme_override_constants/margin_bottom = 28
+
+[node name="Column" type="VBoxContainer" parent="Content"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.5529412, 0.60784316, 0.6901961, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_constants/separation = 14
+
+[node name="Header" type="HBoxContainer" parent="Content/Column"]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="BackButton" type="Button" parent="Content/Column/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "← 뒤로"
+
+[node name="Title" type="Label" parent="Content/Column/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.921569, 0, 1)
+theme_override_colors/font_shadow_color = Color(0.129412, 0.0784314, 0.490196, 1)
+theme_override_constants/shadow_offset_x = 4
+theme_override_constants/shadow_offset_y = 4
+theme_override_font_sizes/font_size = 38
+text = "온라인 대전"
 horizontal_alignment = 1
-autowrap_mode = 3
+vertical_alignment = 1
 
-[node name="ButtonRow" type="HBoxContainer" parent="Center"]
+[node name="RefreshButton" type="Button" parent="Content/Column/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 52)
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_font_sizes/font_size = 20
+text = "새로고침"
+
+[node name="CreatePanel" type="PanelContainer" parent="Content/Column"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_panel")
+
+[node name="CreateMargin" type="MarginContainer" parent="Content/Column/CreatePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 12
+
+[node name="CreateRow" type="HBoxContainer" parent="Content/Column/CreatePanel/CreateMargin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="RoomNameLabel" type="Label" parent="Content/Column/CreatePanel/CreateMargin/CreateRow"]
+custom_minimum_size = Vector2(120, 50)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.0901961, 0.137255, 0.290196, 1)
+theme_override_font_sizes/font_size = 21
+text = "방 이름"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RoomNameField" type="LineEdit" parent="Content/Column/CreatePanel/CreateMargin/CreateRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+placeholder_text = "방 이름을 입력해 주세요"
 alignment = 1
+max_length = 40
 
-[node name="CreateRoomButton" type="Button" parent="Center/ButtonRow"]
+[node name="CreateRoomButton" type="Button" parent="Content/Column/CreatePanel/CreateMargin/CreateRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(220, 64)
+custom_minimum_size = Vector2(150, 50)
 layout_mode = 2
-focus_neighbor_right = NodePath("../JoinRoomButton")
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 20
+text = "방 만들기"
 
-[node name="JoinRoomButton" type="Button" parent="Center/ButtonRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(220, 64)
+[node name="ListTitle" type="Label" parent="Content/Column"]
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
-focus_neighbor_left = NodePath("../CreateRoomButton")
-theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(1, 0.921569, 0, 1)
+theme_override_colors/font_shadow_color = Color(0.129412, 0.0784314, 0.490196, 1)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 28
+text = "공개 방 목록"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RoomScroll" type="ScrollContainer" parent="Content/Column"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="RoomList" type="VBoxContainer" parent="Content/Column/RoomScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
 
 [node name="Toast" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -117,106 +173,21 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -150.0
-offset_top = -160.0
-offset_right = 150.0
-offset_bottom = -110.0
+offset_left = -230.0
+offset_top = -88.0
+offset_right = 230.0
+offset_bottom = -30.0
 grow_horizontal = 2
 grow_vertical = 0
-mouse_filter = 2
 
 [node name="ToastLabel" type="Label" parent="Toast"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.0901961, 0.137255, 0.290196, 1)
+theme_override_font_sizes/font_size = 19
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="JoinPopup" type="Control" parent="."]
+[node name="RefreshTimer" type="Timer" parent="."]
 unique_name_in_owner = true
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Dimmer" type="ColorRect" parent="JoinPopup"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0, 0, 0, 0.65)
-
-[node name="JoinPanel" type="PanelContainer" parent="JoinPopup"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(480, 0)
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -240.0
-offset_top = -110.0
-offset_right = 240.0
-offset_bottom = 110.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="JoinColumn" type="VBoxContainer" parent="JoinPopup/JoinPanel"]
-layout_mode = 2
-theme_override_constants/separation = 14
-
-[node name="JoinTitle" type="Label" parent="JoinPopup/JoinPanel/JoinColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 32
-
-[node name="AddressField" type="LineEdit" parent="JoinPopup/JoinPanel/JoinColumn"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-size_flags_horizontal = 3
-max_length = 64
-select_all_on_focus = true
-
-[node name="JoinErrorLabel" type="Label" parent="JoinPopup/JoinPanel/JoinColumn"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.3529412, 0.3529412, 1)
-theme_override_font_sizes/font_size = 16
-autowrap_mode = 3
-
-[node name="JoinButtons" type="HBoxContainer" parent="JoinPopup/JoinPanel/JoinColumn"]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 2
-
-[node name="JoinCancelButton" type="Button" parent="JoinPopup/JoinPanel/JoinColumn/JoinButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(110, 44)
-layout_mode = 2
-focus_mode = 0
-theme_override_font_sizes/font_size = 18
-
-[node name="JoinConfirmButton" type="Button" parent="JoinPopup/JoinPanel/JoinColumn/JoinButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(110, 44)
-layout_mode = 2
-focus_mode = 0
-theme_override_font_sizes/font_size = 18
-
-[node name="Fade" type="ColorRect" parent="."]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0.0627451, 0.09803922, 0.15294118, 0)
+wait_time = 3.0

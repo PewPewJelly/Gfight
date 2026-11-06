@@ -169,47 +169,27 @@ func check_play_menu() -> void:
 	menu.confirm_mode()
 	await frames(1)
 
-# 온라인 (임시 화면) / 방 참여 ----------------------------------------------------------------
+# 온라인 공개 방 목록 ----------------------------------------------------------------
 
 func check_online_screen() -> void:
 	var online: Control = router.current
-	check(router.current_id == ScreenTypes.ScreenId.ONLINE, "ONLINE opens the temporary online screen")
-	check(online.state == online.ScreenState.IDLE and not online.join_popup.visible, "Online screen opens idle")
-	check(online.create_room_button.text == UiStyle.CREATE_ROOM and online.join_room_button.text == UiStyle.JOIN_ROOM, "Online screen offers 방 생성 / 방 참여")
-	describe("온라인 (임시 화면)", [
-		"왼쪽 위: (←) 뒤로가기, \"%s\" + 회색 태그 [%s]" % [online.title_label.text, online.temp_tag_label.text],
-		"가운데 안내 \"%s\"" % online.note_label.text,
-		"버튼 2개: [%s] [%s] (키보드 ←/→, Enter 가능)" % [online.create_room_button.text, online.join_room_button.text],
+	check(router.current_id == ScreenTypes.ScreenId.ONLINE, "ONLINE opens the public room browser")
+	check(online.state == online.ScreenState.IDLE, "Online screen opens idle")
+	check(online.room_name_field.placeholder_text == "방 이름을 입력해 주세요", "Room name uses the requested placeholder")
+	check(not online.refresh_timer.is_stopped(), "Public room list refreshes every three seconds")
+	online._show_rooms([
+		{"room_id": "room-a", "name": "우진이의 방", "host_name": "우진", "player_count": 1, "max_players": 4, "status": "lobby"},
+		{"room_id": "room-b", "name": "연습 상대 구함", "host_name": "동휘", "player_count": 4, "max_players": 4, "status": "lobby"},
 	])
-	# Address parsing (Docs/01 §5).
-	var parsed: Dictionary = session.parse_address("")
-	check(parsed.ok and parsed.host == "127.0.0.1" and parsed.port == 27840, "Empty address uses local default")
-	parsed = session.parse_address("192.168.0.5:30000")
-	check(parsed.ok and parsed.host == "192.168.0.5" and parsed.port == 30000, "IP:port parses")
-	parsed = session.parse_address("192.168.0.5")
-	check(parsed.ok and parsed.port == 27840, "IP alone uses default port")
-	for bad in ["1.2.3.4:abc", "1.2.3.4:70000", "a:b:c", ":27840"]:
-		check(not session.parse_address(bad).ok, "Rejects bad address %s" % bad)
-	session.last_address = ""
-	online._on_join_room_pressed()
-	check(online.join_popup.visible and online.state == online.ScreenState.JOIN_EDITING, "방 참여 opens the address popup")
-	check(online.address_field.text == "%s:27840" % session.local_ipv4(), "Without a saved address the popup starts with this computer's IP:port")
-	check(online.create_room_button.disabled and online.back_button.disabled, "Screen buttons are off while the popup is open")
-	var first_address: String = online.address_field.text
-	online.address_field.text = "1.2.3.4:abc"
-	online._on_join_confirm_pressed()
-	check(online.state == online.ScreenState.JOIN_INVALID and online.join_error_label.text == UiStyle.BAD_ADDRESS, "Bad address shows the format error")
-	check(online.address_field.text == "1.2.3.4:abc", "Popup keeps the typed address after an error")
-	describe("방 참여 팝업", [
-		"제목 \"%s\", 주소 칸 처음 값 \"%s\" (전체 선택)" % [online.join_title.text, first_address],
-		"버튼: [%s] [%s]" % [online.join_cancel_button.text, online.join_confirm_button.text],
-		"\"1.2.3.4:abc\" 입력 후 확인 → 글자 빨강, 아래 오류 \"%s\" (네트워크 요청 없음)" % online.join_error_label.text,
+	check(online.room_list.get_child_count() == 2, "Room list builds one wide card per public room")
+	var full_room: PanelContainer = online.room_list.get_child(1)
+	var full_button: Button = full_room.get_child(0).get_child(0).get_child(2)
+	check(full_button.disabled and full_button.text == "참여 불가", "Full room cannot be joined")
+	describe("공개 방 목록", [
+		"보노보노를 화면에 꽉 채우고 밝은 하늘색 배경은 무지개로 치환",
+		"방 이름·맵/Stock·방장과 외 N명·1/4 표시·초록 인원등·참여 버튼 표시",
+		"빈 목록 안내는 만들지 않고, 방 이름 입력 후 공개 방 생성",
 	])
-	online.address_field.text = "1.2.3.5"
-	online.address_field.text_changed.emit("1.2.3.5")
-	check(online.state == online.ScreenState.JOIN_EDITING and online.join_error_label.text.is_empty(), "Typing clears the error")
-	online._unhandled_key_input(_key(KEY_ESCAPE))
-	check(not online.join_popup.visible and online.state == online.ScreenState.IDLE, "Esc closes the popup")
 	online._unhandled_key_input(_key(KEY_ESCAPE))
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Esc returns to the main menu")
@@ -222,10 +202,37 @@ func check_online_screen() -> void:
 
 func check_online_lobby() -> void:
 	var online: Control = router.current
-	online._on_create_room_pressed()
-	check(online.create_room_button.text == UiStyle.CREATING and online.create_room_button.disabled, "방 생성 shows 방을 만드는 중…")
-	await frames(2)
-	check(router.current_id == ScreenTypes.ScreenId.LOBBY, "방 생성 opens the lobby")
+	var online_client: Node = root.get_node("OnlineClient")
+	online.state = online.ScreenState.CREATING
+	online._creating_room_name = "테스트 공개방"
+	online_client.room_id = "cloud-room-a"
+	online_client.local_player_id = "host-uuid"
+	var cloud_state := {
+		"type": "room_state",
+		"host_id": "host-uuid",
+		"max_players": 4,
+		"players": [{"player_id": "host-uuid", "display_name": session.local_name,
+			"ready": false, "character_id": "", "slot": 1}],
+	}
+	online_client.room_state = cloud_state
+	online._on_room_state_updated(cloud_state)
+	await frames(1)
+	check(router.current_id == ScreenTypes.ScreenId.LOBBY, "Cloud room creator immediately opens the lobby")
+	check(session.cloud_room and session.is_host() and session.room.name == "테스트 공개방", "Creator becomes the Cloud room host")
+	# Continue the older lobby interaction checks on their fully implemented ENet transport.
+	online_client.disconnect_room()
+	session.leave()
+	var err: Error = session.host_game(session.local_name)
+	check(err == OK, "Legacy ENet host path remains available during migration")
+	await frames(1)
+	var legacy_online: Control = router.current
+	var legacy_result := OnlineExitResult.new()
+	legacy_result.route = OnlineExitResult.Route.LOBBY
+	legacy_result.room_mode = ScreenTypes.RoomMode.ONLINE
+	legacy_result.role = ScreenTypes.Role.HOST
+	legacy_result.room_address = session.room.address
+	legacy_online.exit_requested.emit(legacy_result)
+	await frames(1)
 	var lobby: Control = router.current
 	check(session.room.mode == ScreenTypes.RoomMode.ONLINE and session.is_host(), "Host owns an online room")
 	check(lobby.room_name_label.text == UiStyle.ROOM_UNNAMED and lobby.info_button.visible, "Unnamed room shows 이름 없는 방 with (i)")

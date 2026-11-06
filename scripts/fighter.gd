@@ -169,6 +169,18 @@ func _stop_drop() -> void:
 	drop_body = null
 	drop_left = 0.0
 
+func restore_drop_state(seconds_left: float) -> void:
+	_stop_drop()
+	if seconds_left <= 0.0 or ground_checker == null:
+		return
+	ground_checker.force_raycast_update()
+	var ground := ground_checker.get_collider()
+	if ground is PhysicsBody2D and ground.get_meta("drop_through", false):
+		drop_body = ground
+		add_collision_exception_with(drop_body)
+		ground_checker.add_exception(drop_body)
+		drop_left = seconds_left
+
 func simulate(delta: float, mask: int) -> void:
 	last_input_mask = mask
 	if life_state != LifeState.ACTIVE or not input_enabled:
@@ -216,6 +228,9 @@ func simulate(delta: float, mask: int) -> void:
 	velocity.y += movement.gravity * delta
 	move_and_slide()
 	_slide_off_heads()
+	# Keep tiny platform/CPU floating-point differences from accumulating across rollback peers.
+	position = Vector2(snappedf(position.x, 0.001), snappedf(position.y, 0.001))
+	velocity = Vector2(snappedf(velocity.x, 0.001), snappedf(velocity.y, 0.001))
 	queue_redraw()
 
 ## Landing on another fighter never counts as standing: push sideways until clear.

@@ -376,6 +376,8 @@ func _start_condition_text() -> String:
 		return UiStyle.EMPTY_CATALOG
 	if Session.room.players.size() < RoomState.MIN_PLAYERS:
 		return UiStyle.NEED_TWO
+	if Session.cloud_room and not OnlineClient.is_mesh_ready():
+		return UiStyle.NEED_P2P
 	return UiStyle.NEED_READY
 
 func _bubble_text(peer_id: int) -> String:
