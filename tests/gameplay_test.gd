@@ -141,8 +141,10 @@ func run() -> void:
 	check(session.phase == session.Phase.RESULT and session.match_result().winner_id == 1, "Victory opens the result with P1 as winner")
 	session.return_to_lobby()
 	check(session.phase == session.Phase.LOBBY and session.arena == null, "Host can return to lobby")
+	session.room.player(1).character = &"junbae"
 	check(session.start_game(), "Rematch starts")
 	check(session.arena.fighters[0].stocks == 3 and session.arena.fighters[1].percent == 0.0, "Rematch resets stocks and percent")
+	check(session.arena.fighters[0].character_id == &"junbae" and session.arena.fighters[0].character_sprite.visible, "Junbae lobby selection reaches the match fighter")
 	session.leave()
 	session.local_game()
 	for id in [3, 4]:

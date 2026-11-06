@@ -1,0 +1,52 @@
+class_name JunbaeSettings
+extends Resource
+## Provisional, editor-tunable values for Junbae's character-specific kit.
+
+@export var neutral_damage: float = 6.0
+@export var neutral_percent: float = 7.0
+@export var neutral_reach: float = 68.0
+@export var neutral_width: float = 54.0
+@export var neutral_cooldown: float = 0.24
+@export var up_damage: float = 5.0
+@export var up_percent: float = 6.0
+@export var up_reach: float = 76.0
+@export var up_width: float = 48.0
+@export var down_damage: float = 8.0
+@export var down_percent: float = 8.0
+@export var down_reach: float = 56.0
+@export var down_width: float = 38.0
+@export var ground_down_width: float = 26.0
+@export var sword_damage: float = 9.0
+@export var sword_percent: float = 10.0
+@export var sword_range: float = 94.0
+@export var sword_width: float = 82.0
+@export var sword_duration: float = 0.62
+@export var digital_dash_duration: float = 0.2
+@export var finisher_cooldown: float = 1.4
+@export var finisher_close_hits: int = 3
+@export var altino_damage: float = 8.0
+@export var altino_percent: float = 9.0
+@export var altino_speed: float = 330.0
+@export var meme_damage: float = 6.0
+@export var meme_percent: float = 7.0
+@export var meme_launch: float = 420.0
+@export var meme_slowdown: float = 520.0
+@export var digital_entry_delay: float = 0.42
+@export var digital_skill_delay: float = 0.36
+@export var digital_delay_growth: float = 0.16
+@export var digital_side_damage: float = 11.0
+@export var digital_side_percent: float = 12.0
+@export var digital_side_dash: float = 330.0
+@export var digital_up_damage: float = 9.0
+@export var digital_up_percent: float = 10.0
+@export var digital_up_launch: float = 510.0
+@export var mirror_damage: float = 12.0
+@export var mirror_percent: float = 14.0
+@export var mirror_speed: float = 430.0
+@export var mirror_distance: float = 180.0
+@export var heal_percent: float = 3.0
+@export var finisher_damage: float = 14.0
+@export var finisher_percent: float = 16.0
+@export var finisher_reach: float = 220.0
+@export var finisher_width: float = 140.0
+@export var finisher_launch: float = 640.0

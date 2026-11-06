@@ -15,6 +15,8 @@ var corrupted := false
 var leave_at_tick := -1
 var leaving := false
 var expected_players := 2
+var character_id := ""
+var sent_character := false
 var quit_at := -1.0
 var session: Node
 var client: Node
@@ -35,6 +37,8 @@ func _initialize() -> void:
 			leave_at_tick = int(argument.trim_prefix("--leave-at="))
 		elif argument.begins_with("--players="):
 			expected_players = maxi(2, int(argument.trim_prefix("--players=")))
+		elif argument.begins_with("--character="):
+			character_id = argument.trim_prefix("--character=")
 	if room_id.is_empty():
 		quit(2)
 		return
@@ -53,6 +57,9 @@ func _on_room_state(state: Dictionary) -> void:
 	if not opened_room and not client.local_player_id.is_empty():
 		opened_room = true
 		session.open_cloud_room("Rollback E2E", state)
+	if opened_room and not sent_character and not character_id.is_empty():
+		sent_character = true
+		session.set_character(StringName(character_id))
 	if not opened_room or state.get("players", []).size() < expected_players:
 		return
 	if not session.is_host() and not sent_ready:
