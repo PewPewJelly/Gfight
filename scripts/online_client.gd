@@ -24,6 +24,8 @@ const TIME_SYNC_INTERVAL_MSEC := 1000
 const TIME_SYNC_TIMEOUT_MSEC := 3000
 const PEER_DIAGNOSTIC_INTERVAL_MSEC := 1000
 const PEER_DIAGNOSTIC_TIMEOUT_MSEC := 3000
+const NET_PROTOCOL_VERSION := 2
+const NET_BUILD_TAG := "rollback30-packed15"
 const ICE_CONFIGURATION := {
 	"iceServers": [
 		{"urls": ["stun:stun.cloudflare.com:3478"]}
@@ -72,9 +74,24 @@ var _peer_jitter_msec: Dictionary = {}
 var _peer_ping_timeouts: Dictionary = {}
 var _local_game_tick := -1
 var _expected_game_tick := -1
+var _input_delay_ticks := 0
+var _input_redundancy_ticks := 0
+var _max_rollback_ticks := 0
 var _rollback_count := 0
+var _rollback_depth_counts: Array[int] = [0, 0, 0, 0]
+var _max_rollback_depth := 0
+var _late_input_counts: Dictionary = {}
+var _late_input_max_ticks: Dictionary = {}
+var _last_rollback_source := 0
+var _last_rollback_depth := 0
+var _catchup_event_count := 0
+var _catchup_extra_ticks := 0
+var _max_catchup_steps := 0
 var _desync_count := 0
 var _repair_count := 0
+var _last_repair_tick := -1
+var _last_repair_age_ticks := 0
+var _last_repair_replayed_ticks := 0
 
 func _ready() -> void:
 	_build_debug_overlay()
@@ -136,9 +153,24 @@ func disconnect_room() -> void:
 	_peer_ping_timeouts.clear()
 	_local_game_tick = -1
 	_expected_game_tick = -1
+	_input_delay_ticks = 0
+	_input_redundancy_ticks = 0
+	_max_rollback_ticks = 0
 	_rollback_count = 0
+	_rollback_depth_counts = [0, 0, 0, 0]
+	_max_rollback_depth = 0
+	_late_input_counts.clear()
+	_late_input_max_ticks.clear()
+	_last_rollback_source = 0
+	_last_rollback_depth = 0
+	_catchup_event_count = 0
+	_catchup_extra_ticks = 0
+	_max_catchup_steps = 0
 	_desync_count = 0
 	_repair_count = 0
+	_last_repair_tick = -1
+	_last_repair_age_ticks = 0
+	_last_repair_replayed_ticks = 0
 	for remote_id: String in connections.keys():
 		_close_peer(remote_id)
 	connections.clear()
@@ -202,12 +234,31 @@ func has_server_time_sync() -> bool:
 func server_time_msec() -> float:
 	return Time.get_unix_time_from_system() * 1000.0 + _server_time_offset_msec
 
-func update_game_sync_stats(local_tick: int, expected_tick: int, rollbacks: int, desyncs: int, repairs: int) -> void:
-	_local_game_tick = local_tick
-	_expected_game_tick = expected_tick
-	_rollback_count = rollbacks
-	_desync_count = desyncs
-	_repair_count = repairs
+func update_game_sync_stats(stats: Dictionary) -> void:
+	_local_game_tick = int(stats.get("local_tick", -1))
+	_expected_game_tick = int(stats.get("expected_tick", -1))
+	_input_delay_ticks = int(stats.get("input_delay", 0))
+	_input_redundancy_ticks = int(stats.get("input_redundancy", 0))
+	_max_rollback_ticks = int(stats.get("max_rollback", 0))
+	_rollback_count = int(stats.get("rollbacks", 0))
+	var depth_counts: Variant = stats.get("depth_counts", [])
+	if depth_counts is Array and depth_counts.size() == 4:
+		_rollback_depth_counts.assign(depth_counts)
+	_max_rollback_depth = int(stats.get("max_depth", 0))
+	var late_counts: Variant = stats.get("late_counts", {})
+	_late_input_counts = late_counts.duplicate() if late_counts is Dictionary else {}
+	var late_max: Variant = stats.get("late_max", {})
+	_late_input_max_ticks = late_max.duplicate() if late_max is Dictionary else {}
+	_last_rollback_source = int(stats.get("last_rollback_source", 0))
+	_last_rollback_depth = int(stats.get("last_rollback_depth", 0))
+	_catchup_event_count = int(stats.get("catchup_events", 0))
+	_catchup_extra_ticks = int(stats.get("catchup_extra", 0))
+	_max_catchup_steps = int(stats.get("max_catchup_steps", 0))
+	_desync_count = int(stats.get("desyncs", 0))
+	_repair_count = int(stats.get("repairs", 0))
+	_last_repair_tick = int(stats.get("last_repair_tick", -1))
+	_last_repair_age_ticks = int(stats.get("last_repair_age", 0))
+	_last_repair_replayed_ticks = int(stats.get("last_repair_replayed", 0))
 
 func report_sync_event(text: String) -> void:
 	_log(text)
@@ -619,9 +670,9 @@ func _build_debug_overlay() -> void:
 	add_child(layer)
 	_debug_panel = PanelContainer.new()
 	_debug_panel.position = Vector2(12, 12)
-	_debug_panel.custom_minimum_size = Vector2(680, 260)
+	_debug_panel.custom_minimum_size = Vector2(760, 320)
 	_debug_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_debug_panel.visible = true
+	_debug_panel.visible = false
 	layer.add_child(_debug_panel)
 	_debug_label = Label.new()
 	_debug_label.add_theme_font_size_override("font_size", 14)
@@ -653,11 +704,17 @@ func _update_debug_text() -> void:
 			open_count += 1
 	var cloud_latest := "측정 전" if _latest_time_sync_rtt_msec < 0 else "%dms" % _latest_time_sync_rtt_msec
 	var cloud_best := "-" if _best_time_sync_rtt_msec == 2147483647 else "%dms" % _best_time_sync_rtt_msec
+	var build_version := str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
+	var host_slot := slot_for_player_id(str(room_state.get("host_id", "")))
+	var host_text := "-" if host_slot < 1 else "P%d" % host_slot
+	var physics_rate := int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
 	var lines: Array[String] = [
 		"멀티플레이 진단  [L: 숨기기/표시]",
+		"BUILD %s  |  NET v%d %s" % [build_version, NET_PROTOCOL_VERSION, NET_BUILD_TAG],
 		"━━━━━━━━ 연결 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-		"방 %s  |  내 ID %s  |  P2P %d/%d OPEN" % [room_id.left(8), local_player_id.left(6), open_count, connections.size()],
+		"방 %s  |  내 ID %s  |  HOST %s  |  P2P %d/%d OPEN" % [room_id.left(8), local_player_id.left(6), host_text, open_count, connections.size()],
 		"Cloudflare  RTT %s (최저 %s)  |  시계차 %+dms  |  타임아웃 %d" % [cloud_latest, cloud_best, roundi(_server_time_offset_msec), _time_sync_timeout_count],
+		"FPS %d  |  물리 %dHz  |  따라잡기 %d회/+%dt (최대 %dt/frame)" % [Engine.get_frames_per_second(), physics_rate, _catchup_event_count, _catchup_extra_ticks, _max_catchup_steps],
 		"━━━━━━━━ 플레이어별 P2P ━━━━━━━━━━━━━━━━━━━━━━━"
 	]
 	var remote_ids: Array[String] = []
@@ -676,6 +733,14 @@ func _update_debug_text() -> void:
 			_local_game_tick, _expected_game_tick, _expected_game_tick - _local_game_tick,
 			_rollback_count, _desync_count, _repair_count
 		])
+		lines.append("입력 지연 %dt  |  중복 %dt  |  최대 롤백 %dt" % [_input_delay_ticks, _input_redundancy_ticks, _max_rollback_ticks])
+		lines.append("롤백 깊이  일반 1~6:%d  주의 7~12:%d  큼 13~20:%d  긴급 21~30:%d  |  최대 %dt" % [
+			int(_rollback_depth_counts[0]), int(_rollback_depth_counts[1]),
+			int(_rollback_depth_counts[2]), int(_rollback_depth_counts[3]), _max_rollback_depth
+		])
+		var rollback_text := "없음" if _last_rollback_source < 1 else "P%d %dt" % [_last_rollback_source, _last_rollback_depth]
+		var repair_text := "없음" if _last_repair_tick < 0 else "tick %d / age %dt / replayed %dt" % [_last_repair_tick, _last_repair_age_ticks, _last_repair_replayed_ticks]
+		lines.append("마지막 롤백 %s  |  마지막 복구 %s" % [rollback_text, repair_text])
 	lines.append("━━━━━━━━ 최근 사건 ━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	lines.append_array(_logs.slice(maxi(0, _logs.size() - 5)))
 	_debug_label.text = "\n".join(lines)
@@ -691,11 +756,21 @@ func _peer_debug_line(remote_id: String, now: int) -> String:
 	if _last_received_input_msec.has(remote_id):
 		rx_age = now - int(_last_received_input_msec[remote_id])
 	var age_text := "없음" if rx_age < 0 else "%dms" % rx_age
-	return "P%d %s  |  %s  |  RTT %s  |  ping 실패 %d\n    입력 %d개  |  최근 %s  |  tick %d  |  건너뜀 %d회/%dt" % [
-		slot, player_name.left(8), state, rtt, int(_peer_ping_timeouts.get(remote_id, 0)),
+	var buffered_bytes := 0
+	if connections.has(remote_id):
+		var channel: WebRTCDataChannel = (connections[remote_id] as Dictionary).channel
+		buffered_bytes = channel.get_buffered_amount()
+	return "P%d %s  |  %s  |  RTT %s  |  늦음 %d회/최대 %dt  |  대기 %s  |  ping 실패 %d\n    입력 %d개  |  최근 %s  |  tick %d  |  건너뜀 %d회/%dt" % [
+		slot, player_name.left(8), state, rtt, int(_late_input_counts.get(slot, 0)), int(_late_input_max_ticks.get(slot, 0)),
+		_format_bytes(buffered_bytes), int(_peer_ping_timeouts.get(remote_id, 0)),
 		int(_received_input_packets.get(remote_id, 0)), age_text, int(_last_received_input_tick.get(remote_id, -1)),
 		int(_input_tick_gap_events.get(remote_id, 0)), int(_input_tick_gap_total.get(remote_id, 0)),
 	]
+
+func _format_bytes(byte_count: int) -> String:
+	if byte_count < 1024:
+		return "%dB" % byte_count
+	return "%.1fKB" % (float(byte_count) / 1024.0)
 
 func _display_name_for_player_id(player_id: String) -> String:
 	for value: Variant in room_state.get("players", []):

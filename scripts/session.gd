@@ -8,6 +8,7 @@ signal chat_received(peer_id: int, text: String)
 ## Docs/00 §3.5.
 enum Phase { MENU, CONNECTING, LOBBY, CLOSING, PLAYING, RESULT }
 enum JoinRejection { FULL, IN_PROGRESS, VERSION }
+enum RollbackDepthTier { NORMAL, WARNING, LARGE, CRITICAL }
 const MAX_PLAYERS: int = 4
 const DEFAULT_PORT: int = 27840
 const DEFAULT_ADDRESS := "127.0.0.1"
@@ -19,10 +20,14 @@ const CHAT_MAX_LENGTH: int = 40
 const CHAT_MIN_INTERVAL_MSEC: int = 500
 ## Inputs older than this are released (a lost client must not keep running).
 const INPUT_STALE_MSEC: int = 500
-const ROLLBACK_INPUT_DELAY: int = 2
-const ROLLBACK_MAX_TICKS: int = 12
-const ROLLBACK_REDUNDANCY: int = 5
+const ROLLBACK_INPUT_DELAY: int = 4
+const ROLLBACK_MAX_TICKS: int = 30
+const ROLLBACK_PREDICTION_TICKS: int = 12
+const ROLLBACK_REDUNDANCY: int = 15
 const ROLLBACK_HASH_INTERVAL: int = 30
+const ROLLBACK_NORMAL_MAX_TICKS: int = 6
+const ROLLBACK_WARNING_MAX_TICKS: int = 12
+const ROLLBACK_LARGE_MAX_TICKS: int = 20
 const FIXED_TICK_SECONDS: float = 1.0 / 60.0
 const SYNC_HISTORY_TICKS: int = 120
 const CLOCK_MAX_CATCHUP_TICKS: int = 4
@@ -64,10 +69,24 @@ var _rollback_used: Dictionary = {}
 var _rollback_states: Dictionary = {}
 var _rollback_hashes: Dictionary = {}
 var _pending_rollback_tick: int = -1
+var _pending_rollback_source: int = 0
 var _resimulating: bool = false
 var rollback_count: int = 0
+var rollback_depth_counts: Array[int] = [0, 0, 0, 0]
+var max_rollback_depth: int = 0
+var late_input_counts: Dictionary = {}
+var late_input_max_ticks: Dictionary = {}
+var last_rollback_source: int = 0
+var last_rollback_depth: int = 0
+var catchup_event_count: int = 0
+var catchup_extra_ticks: int = 0
+var max_catchup_steps: int = 0
 var desync_count: int = 0
 var repair_count: int = 0
+var _last_repair_tick: int = -1
+var last_repair_snapshot_tick: int = -1
+var last_repair_age_ticks: int = 0
+var last_repair_replayed_ticks: int = 0
 var _cloud_match_start_msec := 0.0
 var _last_repair_sent_msec: Dictionary = {}
 var local_name: String = PlayerData.DEFAULT_NAME
@@ -817,12 +836,9 @@ func submit_local_input(mask: int) -> void:
 	if cloud_room and is_instance_valid(arena):
 		var tick := arena.frame + ROLLBACK_INPUT_DELAY
 		_store_rollback_input(tick, my_id(), mask & 63, true)
-		var recent: Array[Dictionary] = []
-		for past_tick: int in range(maxi(0, tick - ROLLBACK_REDUNDANCY + 1), tick + 1):
-			var values: Dictionary = _rollback_inputs.get(past_tick, {})
-			if values.has(my_id()):
-				recent.append({"tick": past_tick, "buttons": int(values[my_id()])})
-		OnlineClient.send_game_packet({"type": "input", "match_id": _cloud_match_id, "latest_tick": tick, "recent": recent})
+		var packet := {"type": "input", "match_id": _cloud_match_id, "latest_tick": tick}
+		packet.merge(_pack_recent_inputs(tick, my_id()))
+		OnlineClient.send_game_packet(packet)
 		return
 	if is_host():
 		_store_input(my_id(), mask)
@@ -863,14 +879,36 @@ func _reset_rollback() -> void:
 	_rollback_states.clear()
 	_rollback_hashes.clear()
 	_pending_rollback_tick = -1
+	_pending_rollback_source = 0
 	_resimulating = false
 	rollback_count = 0
+	rollback_depth_counts = [0, 0, 0, 0]
+	max_rollback_depth = 0
+	late_input_counts.clear()
+	late_input_max_ticks.clear()
+	last_rollback_source = 0
+	last_rollback_depth = 0
+	catchup_event_count = 0
+	catchup_extra_ticks = 0
+	max_catchup_steps = 0
 	desync_count = 0
 	repair_count = 0
+	_last_repair_tick = -1
+	last_repair_snapshot_tick = -1
+	last_repair_age_ticks = 0
+	last_repair_replayed_ticks = 0
 	_last_repair_sent_msec.clear()
 
+func _pack_recent_inputs(latest_tick: int, id: int) -> Dictionary:
+	var start_tick := maxi(0, latest_tick - ROLLBACK_REDUNDANCY + 1)
+	var buttons := PackedByteArray()
+	for input_tick: int in range(start_tick, latest_tick + 1):
+		var values: Dictionary = _rollback_inputs.get(input_tick, {})
+		buttons.append(int(values[id]) & 63 if values.has(id) else 255)
+	return {"input_start_tick": start_tick, "input_buttons": buttons}
+
 func _predicted_input(id: int, tick: int) -> int:
-	for previous: int in range(tick - 1, maxi(-1, tick - ROLLBACK_MAX_TICKS - 1), -1):
+	for previous: int in range(tick - 1, maxi(-1, tick - ROLLBACK_PREDICTION_TICKS - 1), -1):
 		var values: Dictionary = _rollback_inputs.get(previous, {})
 		if values.has(id):
 			return int(values[id])
@@ -880,13 +918,20 @@ func _store_rollback_input(tick: int, id: int, mask: int, actual: bool) -> void:
 	if tick < 0 or id < 1 or id > MAX_PLAYERS:
 		return
 	var values: Dictionary = _rollback_inputs.get(tick, {})
+	var was_known := values.has(id)
 	values[id] = mask & 63
 	_rollback_inputs[tick] = values
 	if actual and is_instance_valid(arena) and tick < arena.frame:
+		if not was_known:
+			var lateness := arena.frame - tick
+			late_input_counts[id] = int(late_input_counts.get(id, 0)) + 1
+			late_input_max_ticks[id] = maxi(int(late_input_max_ticks.get(id, 0)), lateness)
 		var used: Dictionary = _rollback_used.get(tick, {})
 		if used.has(id) and int(used[id]) != (mask & 63):
 			if tick >= arena.frame - ROLLBACK_MAX_TICKS:
-				_pending_rollback_tick = tick if _pending_rollback_tick < 0 else mini(_pending_rollback_tick, tick)
+				if _pending_rollback_tick < 0 or tick < _pending_rollback_tick:
+					_pending_rollback_tick = tick
+					_pending_rollback_source = id
 			else:
 				push_warning("Rollback input arrived too late: tick %d, current %d" % [tick, arena.frame])
 
@@ -900,12 +945,9 @@ func _on_cloud_data_received(remote_id: String, message_value: Variant) -> void:
 	match message_type:
 		"input":
 			var slot := OnlineClient.slot_for_player_id(remote_id)
-			if slot < 1 or not message.get("recent", []) is Array:
+			if slot < 1:
 				return
-			for value: Variant in message.recent:
-				if value is Dictionary:
-					var entry: Dictionary = value
-					_store_rollback_input(int(entry.get("tick", -1)), slot, int(entry.get("buttons", 0)), true)
+			_store_remote_input_packet(slot, message)
 		"state_hash":
 			_handle_remote_state_hash(remote_id, message)
 		"state_repair":
@@ -915,6 +957,29 @@ func _on_cloud_data_received(remote_id: String, message_value: Variant) -> void:
 			var slot := OnlineClient.slot_for_player_id(remote_id)
 			if slot > 0:
 				_record_confirm(slot)
+
+func _store_remote_input_packet(slot: int, message: Dictionary) -> void:
+	var packed_value: Variant = message.get("input_buttons")
+	if packed_value is PackedByteArray:
+		var packed: PackedByteArray = packed_value
+		var start_tick := int(message.get("input_start_tick", -1))
+		var latest_tick := int(message.get("latest_tick", -1))
+		if start_tick < 0 or packed.is_empty() or packed.size() > ROLLBACK_REDUNDANCY \
+				or start_tick + packed.size() - 1 != latest_tick:
+			return
+		for index: int in range(packed.size()):
+			var buttons := int(packed[index])
+			if buttons <= 63:
+				_store_rollback_input(start_tick + index, slot, buttons, true)
+		return
+	# Temporary compatibility with clients built before packed 15-tick input windows.
+	var recent_value: Variant = message.get("recent")
+	if not recent_value is Array:
+		return
+	for value: Variant in recent_value:
+		if value is Dictionary:
+			var entry: Dictionary = value
+			_store_rollback_input(int(entry.get("tick", -1)), slot, int(entry.get("buttons", 0)), true)
 
 func _on_cloud_tick_completed(state: Dictionary) -> void:
 	var tick := int(state.get("frame", 0))
@@ -968,19 +1033,38 @@ func _send_state_repair(remote_id: String, reason: String) -> void:
 func _apply_state_repair(state: Dictionary) -> void:
 	if not is_instance_valid(arena) or not state.get("frame") is int:
 		return
+	var repair_tick := int(state.frame)
+	if repair_tick <= _last_repair_tick:
+		return
+	var replay_target_tick := maxi(arena.frame, repair_tick)
+	var preserved_inputs: Dictionary = {}
+	for key: Variant in _rollback_inputs.keys():
+		if int(key) > repair_tick:
+			preserved_inputs[key] = (_rollback_inputs[key] as Dictionary).duplicate(true)
 	arena.restore_snapshot(state)
-	_rollback_inputs.clear()
+	_rollback_inputs = preserved_inputs
 	_rollback_used.clear()
 	_rollback_states.clear()
 	_rollback_hashes.clear()
 	_pending_rollback_tick = -1
-	_resimulating = false
+	_pending_rollback_source = 0
+	_last_repair_tick = repair_tick
 	var repaired_state := arena.snapshot().duplicate(true)
 	_rollback_states[arena.frame] = repaired_state
 	if arena.frame > 0 and arena.frame % ROLLBACK_HASH_INTERVAL == 0:
 		_rollback_hashes[arena.frame] = _rollback_state_hash(repaired_state)
+	_resimulating = true
+	while arena.frame < replay_target_tick and phase == Phase.PLAYING:
+		arena.simulate_tick(FIXED_TICK_SECONDS)
+	_resimulating = false
+	var replayed_ticks := arena.frame - repair_tick
+	last_repair_snapshot_tick = repair_tick
+	last_repair_age_ticks = replay_target_tick - repair_tick
+	last_repair_replayed_ticks = replayed_ticks
 	repair_count += 1
-	OnlineClient.report_sync_event("REPAIR applied tick=%d" % arena.frame)
+	OnlineClient.report_sync_event("REPAIR applied snapshot=%d age=%dt replayed=%dt" % [
+		repair_tick, replay_target_tick - repair_tick, replayed_ticks
+	])
 
 func _rollback_state_hash(state: Dictionary) -> int:
 	var parts := PackedStringArray([str(state.get("frame", 0)), str(state.get("winner", 0))])
@@ -1008,15 +1092,32 @@ func _apply_pending_rollback() -> void:
 		return
 	var target_tick := arena.frame
 	var rollback_tick := maxi(_pending_rollback_tick, target_tick - ROLLBACK_MAX_TICKS)
+	var rollback_source := _pending_rollback_source
 	_pending_rollback_tick = -1
+	_pending_rollback_source = 0
 	if not _rollback_states.has(rollback_tick):
 		return
+	var rollback_depth := target_tick - rollback_tick
+	var depth_tier := _rollback_tier_for_depth(rollback_depth)
 	_resimulating = true
 	rollback_count += 1
+	rollback_depth_counts[depth_tier] += 1
+	max_rollback_depth = maxi(max_rollback_depth, rollback_depth)
+	last_rollback_source = rollback_source
+	last_rollback_depth = rollback_depth
 	arena.restore_snapshot(_rollback_states[rollback_tick])
 	while arena.frame < target_tick and phase == Phase.PLAYING:
 		arena.simulate_tick(FIXED_TICK_SECONDS)
 	_resimulating = false
+
+func _rollback_tier_for_depth(depth: int) -> int:
+	if depth <= ROLLBACK_NORMAL_MAX_TICKS:
+		return RollbackDepthTier.NORMAL
+	if depth <= ROLLBACK_WARNING_MAX_TICKS:
+		return RollbackDepthTier.WARNING
+	if depth <= ROLLBACK_LARGE_MAX_TICKS:
+		return RollbackDepthTier.LARGE
+	return RollbackDepthTier.CRITICAL
 
 func _advance_to_cloud_tick() -> void:
 	if _cloud_match_start_msec <= 0.0 or not OnlineClient.has_server_time_sync():
@@ -1024,11 +1125,36 @@ func _advance_to_cloud_tick() -> void:
 	var elapsed_msec := maxf(0.0, OnlineClient.server_time_msec() - _cloud_match_start_msec)
 	var expected_tick := int(floor(elapsed_msec / (FIXED_TICK_SECONDS * 1000.0)))
 	var steps := clampi(expected_tick - arena.frame, 0, CLOCK_MAX_CATCHUP_TICKS)
+	if steps > 1:
+		catchup_event_count += 1
+		catchup_extra_ticks += steps - 1
+		max_catchup_steps = maxi(max_catchup_steps, steps)
 	for _step: int in range(steps):
 		if phase != Phase.PLAYING or arena.ended:
 			break
 		arena.simulate_tick(FIXED_TICK_SECONDS)
-	OnlineClient.update_game_sync_stats(arena.frame, expected_tick, rollback_count, desync_count, repair_count)
+	OnlineClient.update_game_sync_stats({
+		"local_tick": arena.frame,
+		"expected_tick": expected_tick,
+		"input_delay": ROLLBACK_INPUT_DELAY,
+		"input_redundancy": ROLLBACK_REDUNDANCY,
+		"max_rollback": ROLLBACK_MAX_TICKS,
+		"rollbacks": rollback_count,
+		"depth_counts": rollback_depth_counts,
+		"max_depth": max_rollback_depth,
+		"late_counts": late_input_counts,
+		"late_max": late_input_max_ticks,
+		"last_rollback_source": last_rollback_source,
+		"last_rollback_depth": last_rollback_depth,
+		"catchup_events": catchup_event_count,
+		"catchup_extra": catchup_extra_ticks,
+		"max_catchup_steps": max_catchup_steps,
+		"desyncs": desync_count,
+		"repairs": repair_count,
+		"last_repair_tick": last_repair_snapshot_tick,
+		"last_repair_age": last_repair_age_ticks,
+		"last_repair_replayed": last_repair_replayed_ticks,
+	})
 
 func _broadcast_snapshot(state: Dictionary) -> void:
 	if not is_offline() and multiplayer.get_peers().size() > 0:

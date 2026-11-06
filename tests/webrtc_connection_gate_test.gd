@@ -26,14 +26,14 @@ func run() -> void:
 		progress_ready = ready
 		progress_total = total
 	)
-	check(client._debug_panel.visible, "Multiplayer log is visible by default")
+	check(not client._debug_panel.visible, "Multiplayer log is hidden by default")
 	var toggle_key := InputEventKey.new()
 	toggle_key.physical_keycode = KEY_L
 	toggle_key.pressed = true
 	client._unhandled_key_input(toggle_key)
-	check(not client._debug_panel.visible, "L hides the multiplayer log")
+	check(client._debug_panel.visible, "L shows the multiplayer log")
 	client._unhandled_key_input(toggle_key)
-	check(client._debug_panel.visible, "L shows the multiplayer log again")
+	check(not client._debug_panel.visible, "L hides the multiplayer log again")
 
 	var ice_servers: Array = client.ICE_CONFIGURATION.get("iceServers", [])
 	check(not ice_servers.is_empty(), "WebRTC has an ICE server configuration")
