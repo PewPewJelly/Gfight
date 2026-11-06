@@ -444,7 +444,7 @@ func check_training() -> void:
 	player.reset_round(Vector2(400, 250))
 	dummy.reset_round(Vector2(455, 250))
 	player.facing = 1.0
-	player.simulate(1.0 / 60.0, 16)
+	player.simulate(1.0 / 60.0, Fighter.INPUT_RIGHT | Fighter.INPUT_ATTACK)
 	arena._resolve_attacks()
 	check(dummy.percent > 0.0 and dummy.last_attacker_id == player.player_id and dummy.velocity.x > 0.0, "Hitting the dummy raises its percent and knocks it back")
 	check(is_equal_approx(player.dealt_percent, dummy.percent), "Damage dealt to the dummy is recorded")

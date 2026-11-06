@@ -198,7 +198,7 @@ func start_training() -> void:
 	_open_room(ScreenTypes.RoomMode.TRAINING, "")
 	changed.emit()
 
-## Two players on one keyboard (test helper; P1 WASD/J, P2 arrows/K).
+## Two players on one keyboard (test helper; keys: Fighter.P1_KEYS, Fighter.P2_KEYS).
 func local_game() -> void:
 	leave()
 	local_mode = true
@@ -812,6 +812,7 @@ func _begin_match(setup_data: Dictionary) -> void:
 	arena.local_player_id = 0 if local_mode else my_id()
 	arena.participant_ids.assign(setup.participants)
 	arena.dummy_ids.assign(setup.dummy_ids)
+	arena.character_ids = setup.characters.duplicate()
 	arena.input_provider = input_for
 	add_child(arena)
 	if cloud_room:
@@ -835,7 +836,7 @@ func submit_local_input(mask: int) -> void:
 		return
 	if cloud_room and is_instance_valid(arena):
 		var tick := arena.frame + ROLLBACK_INPUT_DELAY
-		_store_rollback_input(tick, my_id(), mask & 63, true)
+		_store_rollback_input(tick, my_id(), mask & Fighter.INPUT_ALL, true)
 		var packet := {"type": "input", "match_id": _cloud_match_id, "latest_tick": tick}
 		packet.merge(_pack_recent_inputs(tick, my_id()))
 		OnlineClient.send_game_packet(packet)
@@ -852,7 +853,7 @@ func _submit_input(mask: int, round_generation: int) -> void:
 		_store_input(sender, mask)
 
 func _store_input(id: int, mask: int) -> void:
-	input_masks[id] = mask & 63
+	input_masks[id] = mask & Fighter.INPUT_ALL
 	input_times[id] = Time.get_ticks_msec()
 
 func input_for(id: int) -> int:
@@ -865,10 +866,7 @@ func input_for(id: int) -> int:
 		_rollback_used[tick] = used
 		return mask
 	if local_mode:
-		var keys: Array[Key] = [KEY_A, KEY_D, KEY_W, KEY_J]
-		if id == 2:
-			keys = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_K]
-		return Fighter.read_keyboard(keys, KEY_S if id == 1 else KEY_DOWN)
+		return Fighter.read_keyboard(Fighter.P2_KEYS if id == 2 else Fighter.P1_KEYS)
 	if Time.get_ticks_msec() - int(input_times.get(id, 0)) > INPUT_STALE_MSEC:
 		return 0
 	return int(input_masks.get(id, 0))
@@ -904,7 +902,7 @@ func _pack_recent_inputs(latest_tick: int, id: int) -> Dictionary:
 	var buttons := PackedByteArray()
 	for input_tick: int in range(start_tick, latest_tick + 1):
 		var values: Dictionary = _rollback_inputs.get(input_tick, {})
-		buttons.append(int(values[id]) & 63 if values.has(id) else 255)
+		buttons.append(int(values[id]) & Fighter.INPUT_ALL if values.has(id) else 255)
 	return {"input_start_tick": start_tick, "input_buttons": buttons}
 
 func _predicted_input(id: int, tick: int) -> int:
@@ -919,7 +917,7 @@ func _store_rollback_input(tick: int, id: int, mask: int, actual: bool) -> void:
 		return
 	var values: Dictionary = _rollback_inputs.get(tick, {})
 	var was_known := values.has(id)
-	values[id] = mask & 63
+	values[id] = mask & Fighter.INPUT_ALL
 	_rollback_inputs[tick] = values
 	if actual and is_instance_valid(arena) and tick < arena.frame:
 		if not was_known:
@@ -927,7 +925,7 @@ func _store_rollback_input(tick: int, id: int, mask: int, actual: bool) -> void:
 			late_input_counts[id] = int(late_input_counts.get(id, 0)) + 1
 			late_input_max_ticks[id] = maxi(int(late_input_max_ticks.get(id, 0)), lateness)
 		var used: Dictionary = _rollback_used.get(tick, {})
-		if used.has(id) and int(used[id]) != (mask & 63):
+		if used.has(id) and int(used[id]) != (mask & Fighter.INPUT_ALL):
 			if tick >= arena.frame - ROLLBACK_MAX_TICKS:
 				if _pending_rollback_tick < 0 or tick < _pending_rollback_tick:
 					_pending_rollback_tick = tick
@@ -969,7 +967,7 @@ func _store_remote_input_packet(slot: int, message: Dictionary) -> void:
 			return
 		for index: int in range(packed.size()):
 			var buttons := int(packed[index])
-			if buttons <= 63:
+			if buttons <= Fighter.INPUT_ALL:
 				_store_rollback_input(start_tick + index, slot, buttons, true)
 		return
 	# Temporary compatibility with clients built before packed 15-tick input windows.
