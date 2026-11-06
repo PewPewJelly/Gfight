@@ -812,6 +812,7 @@ func _begin_match(setup_data: Dictionary) -> void:
 	arena.local_player_id = 0 if local_mode else my_id()
 	arena.participant_ids.assign(setup.participants)
 	arena.dummy_ids.assign(setup.dummy_ids)
+	arena.character_picks = setup.characters.duplicate()
 	arena.input_provider = input_for
 	add_child(arena)
 	if cloud_room:
@@ -866,9 +867,14 @@ func input_for(id: int) -> int:
 		return mask
 	if local_mode:
 		var keys: Array[Key] = [KEY_A, KEY_D, KEY_W, KEY_J]
+		var skill_key: Key = KEY_L
 		if id == 2:
 			keys = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_K]
-		return Fighter.read_keyboard(keys, KEY_S if id == 1 else KEY_DOWN)
+			skill_key = KEY_KP_0
+		var mask := Fighter.read_keyboard(keys, KEY_S if id == 1 else KEY_DOWN)
+		if Input.is_physical_key_pressed(skill_key):
+			mask |= 32
+		return mask
 	if Time.get_ticks_msec() - int(input_times.get(id, 0)) > INPUT_STALE_MSEC:
 		return 0
 	return int(input_masks.get(id, 0))

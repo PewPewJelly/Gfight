@@ -15,7 +15,18 @@ func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 static func art_texture(id: StringName) -> Texture2D:
-	return _load_art("res://assets/characters/%s.svg", id, _cache)
+	var key := String(id) if not String(id).is_empty() else String(ContentCatalog.RANDOM)
+	if not _cache.has(key):
+		var path := "res://assets/characters/%s.svg" % key
+		for extension in ["png", "webp", "jpg", "svg"]:
+			var candidate := "res://assets/characters/%s.%s" % [key, extension]
+			if ResourceLoader.exists(candidate):
+				path = candidate
+				break
+		if not ResourceLoader.exists(path):
+			path = "res://assets/characters/random.svg"
+		_cache[key] = load(path) as Texture2D
+	return _cache[key]
 
 ## Shared with MapArt: loads <folder>/<id>.svg once, falling back to random.svg.
 static func _load_art(pattern: String, id: StringName, cache: Dictionary) -> Texture2D:

@@ -62,6 +62,14 @@ func _draw() -> void:
 		_draw_floating(screen, "%d" % ceili(arena.countdown_left))
 	elif _go_left > 0.0:
 		_draw_floating(screen, UiStyle.GO)
+	else:
+		for fighter: Fighter in arena.fighters:
+			if fighter.character_id == &"junbae":
+				var controls := "준배: J 평타 · K 기술 · J+K 필살기"
+				if Session.local_mode:
+					controls = "준배 P1: J 평타 · L 기술 · J+L 필살기  /  P2: K 평타 · 숫자패드 0 기술"
+				_text(Rect2(0, 12, screen.x, 24), controls, 16, UiStyle.TEXT_DIM)
+				break
 	if local_fighter != null and local_fighter.life_state == Fighter.LifeState.ELIMINATED and not arena.ended:
 		var strip := Rect2(0, 24, screen.x, 44)
 		draw_rect(strip, Color(0, 0, 0, 0.55))

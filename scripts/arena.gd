@@ -17,6 +17,7 @@ var starting_stocks: int = CombatRules.INITIAL_STOCKS
 @export var attack: AttackData = preload("res://resources/basic_attack.tres")
 @export var movement: MovementSettings = preload("res://resources/movement_settings.tres")
 var fighters: Array[Fighter] = []
+var character_picks: Dictionary = {}
 var platforms: Array[Rect2] = [Rect2(180, 540, 920, 30), Rect2(260, 360, 260, 20), Rect2(760, 360, 260, 20)]
 var screen_bounds := Rect2(0, 0, 1280, 720)
 ## Crossing any edge of this rectangle is an instant ring-out (see CombatRules.blast_zone).
@@ -56,6 +57,7 @@ func _ready() -> void:
 		var fighter := Fighter.new()
 		fighter.rules = rules
 		fighter.player_id = participant_ids[id]
+		fighter.character_id = StringName(character_picks.get(fighter.player_id, &"test_fighter"))
 		fighter.player_slot = id + 1
 		fighter.self_tick = false
 		fighter.is_dummy = dummy_ids.has(fighter.player_id)
@@ -150,7 +152,7 @@ func _resolve_attacks() -> void:
 		var direction := source.attack_direction()
 		var box := source.attack_box()
 		box.position += source.position
-		var data: AttackData = source.attacks[source.attack_kind]
+		var data: AttackData = source.attack_data_for_kind()
 		for target in fighters:
 			if target == source or target.life_state != Fighter.LifeState.ACTIVE:
 				continue
@@ -159,10 +161,97 @@ func _resolve_attacks() -> void:
 	for hit in hits:
 		var target: Fighter = hit.target
 		var before := target.percent
-		if target.receive_hit(hit.attack, hit.direction):
-			var source: Fighter = hit.source
+		var source: Fighter = hit.source
+		var strike_count := source.junbae.finisher_close_hits if source.attack_kind == "finisher" and absf(source.position.x - target.position.x) < 60.0 else 1
+		for strike in range(strike_count):
+			if not target.receive_hit(hit.attack, hit.direction):
+				break
 			source.dealt_percent += target.percent - before
+			before = target.percent
 			target.last_attacker_id = source.player_id
+	_resolve_projectile_hits()
+
+func nearest_fighter(from: Vector2, exclude_id: int) -> Fighter:
+	var nearest: Fighter = null
+	var nearest_distance := INF
+	for fighter in fighters:
+		if fighter.player_id == exclude_id or fighter.life_state != Fighter.LifeState.ACTIVE:
+			continue
+		var distance := from.distance_squared_to(fighter.position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = fighter
+	return nearest
+
+func fighter_for_id(id: int) -> Fighter:
+	for fighter: Fighter in fighters:
+		if fighter.player_id == id:
+			return fighter
+	return null
+
+func _resolve_projectile_hits() -> void:
+	_reflect_projectiles()
+	for owner: Fighter in fighters:
+		if owner.character_id != &"junbae" or owner.projectile_kind.is_empty():
+			continue
+		var attacker := fighter_for_id(owner.projectile_owner_id)
+		if attacker == null:
+			attacker = owner
+		for target: Fighter in fighters:
+			if target.player_id == owner.projectile_owner_id or target.life_state != Fighter.LifeState.ACTIVE:
+				continue
+			var radius := 18.0 if owner.projectile_kind.begins_with("mirror") else 24.0
+			var shot_box := Rect2(owner.projectile_position - Vector2.ONE * radius, Vector2.ONE * radius * 2.0)
+			if not shot_box.intersects(Rect2(target.position - Fighter.HALF_SIZE, Fighter.HALF_SIZE * 2.0)):
+				continue
+			var kind := owner.projectile_kind
+			var data := owner.attack_data_for_kind(kind)
+			if kind == "altino":
+				data.damage = owner.junbae.altino_damage + 2.0
+				data.percent_increase = owner.junbae.altino_percent + 2.0
+				data.base_launch_speed = 540.0
+				data.width = 132.0
+				data.launch_direction = Vector2(owner.facing, -0.4)
+			elif kind == "meme":
+				data = owner.attack_data_for_kind("meme")
+				owner.attack_kind = "meme"
+			var blast_center := owner.projectile_position
+			if kind == "altino":
+				owner._emote("와아, 우레시이~", 0.55)
+				owner.projectile_kind = ""
+				for blast_target: Fighter in fighters:
+					if blast_target == attacker or blast_target.life_state != Fighter.LifeState.ACTIVE:
+						continue
+					if (blast_target.position - blast_center).abs().x > 62.0 or (blast_target.position - blast_center).abs().y > 72.0:
+						continue
+					_apply_attack_hit(attacker, blast_target, data, Vector2(owner.projectile_velocity.normalized().x, -0.4))
+			else:
+				if kind == "meme":
+					owner._emote("어흐", 0.75)
+				_apply_attack_hit(attacker, target, data, owner.projectile_velocity.normalized())
+				owner.projectile_kind = ""
+			break
+
+func _reflect_projectiles() -> void:
+	# Reflection is resolved before projectile impacts so the new owner can be hit.
+	for swordsman: Fighter in fighters:
+		if swordsman.character_id != &"junbae" or swordsman.attack_kind != "sword" or swordsman.attack_cooldown < 0.42:
+			continue
+		var sweep := swordsman.attack_box()
+		sweep.position += swordsman.position
+		for owner: Fighter in fighters:
+			if owner == swordsman or owner.projectile_kind.is_empty():
+				continue
+			var point_box := Rect2(owner.projectile_position - Vector2(18, 18), Vector2(36, 36))
+			if sweep.intersects(point_box):
+				owner.projectile_velocity = Vector2(-owner.projectile_velocity.x, -owner.projectile_velocity.y)
+				owner.projectile_owner_id = swordsman.player_id
+
+func _apply_attack_hit(source: Fighter, target: Fighter, attack_data: AttackData, direction: Vector2) -> void:
+	var before := target.percent
+	if target.receive_hit(attack_data, direction):
+		source.dealt_percent += target.percent - before
+		target.last_attacker_id = source.player_id
 
 ## Credits the kill to the last attacker and records elimination order for ranks.
 func _on_stock_lost(fighter: Fighter) -> void:
@@ -268,7 +357,19 @@ func snapshot() -> Dictionary:
 			"jump_down": fighter.jump_was_down, "attack_down": fighter.attack_was_down,
 			"down_down": fighter.down_was_down, "attack_requested": fighter.attack_requested,
 			"last_input": fighter.last_input_mask, "last_attacker": fighter.last_attacker_id,
-			"drop": fighter.drop_left})
+			"drop": fighter.drop_left, "character": String(fighter.character_id),
+			"special_cooldown": fighter.special_cooldown, "special_down": fighter.special_was_down,
+			"digital": fighter.digital_mode, "digital_delay": fighter.digital_delay,
+			"digital_count": fighter.digital_delay_count, "digital_action": fighter.digital_action,
+			"digital_action_left": fighter.digital_action_left, "digital_airborne": fighter.digital_skill_airborne,
+			"projectile_kind": fighter.projectile_kind,
+			"look_style": fighter.look_style, "portrait_style": fighter.portrait_style,
+			"portrait_position": fighter.digital_portrait_position,
+			"emote": fighter.emote_text, "emote_left": fighter.emote_left,
+			"projectile_position": fighter.projectile_position, "projectile_velocity": fighter.projectile_velocity,
+			"projectile_left": fighter.projectile_left, "projectile_owner": fighter.projectile_owner_id,
+			"mirror_position": fighter.mirror_position, "neutral_combo": fighter.neutral_combo,
+			"neutral_combo_left": fighter.neutral_combo_left})
 	return {"players": players, "ended": ended, "result": result, "winner": winner_id,
 		"countdown": countdown_left, "frame": frame, "rng": rng.state}
 
@@ -316,6 +417,33 @@ func _apply_snapshot(state: Dictionary, allow_older: bool) -> void:
 			fighter.attack_requested = bool(data.get("attack_requested", false))
 			fighter.last_input_mask = int(data.get("last_input", 0))
 			fighter.last_attacker_id = int(data.get("last_attacker", 0))
+			fighter.special_cooldown = float(data.get("special_cooldown", 0.0))
+			fighter.special_was_down = bool(data.get("special_down", false))
+			fighter.digital_mode = bool(data.get("digital", false))
+			fighter.digital_delay = float(data.get("digital_delay", 0.0))
+			fighter.digital_delay_count = int(data.get("digital_count", 0))
+			fighter.digital_action = String(data.get("digital_action", ""))
+			fighter.digital_action_left = float(data.get("digital_action_left", 0.0))
+			fighter.digital_skill_airborne = bool(data.get("digital_airborne", false))
+			fighter.projectile_kind = String(data.get("projectile_kind", ""))
+			fighter.projectile_position = data.get("projectile_position", Vector2.ZERO)
+			fighter.projectile_velocity = data.get("projectile_velocity", Vector2.ZERO)
+			fighter.projectile_left = float(data.get("projectile_left", 0.0))
+			fighter.projectile_owner_id = int(data.get("projectile_owner", fighter.player_id))
+			fighter.mirror_position = data.get("mirror_position", Vector2.ZERO)
+			fighter.neutral_combo = int(data.get("neutral_combo", 0))
+			fighter.neutral_combo_left = float(data.get("neutral_combo_left", 0.0))
+			fighter._set_character_look(String(data.get("look_style", "digital" if fighter.digital_mode else "standing")))
+			fighter.portrait_style = String(data.get("portrait_style", "profile"))
+			fighter.digital_portrait_position = data.get("portrait_position", fighter.position + Vector2(0, -92))
+			fighter.emote_text = String(data.get("emote", ""))
+			fighter.emote_left = float(data.get("emote_left", 0.0))
+			if fighter.digital_mode and is_instance_valid(fighter.portrait_marker):
+				fighter.portrait_marker.texture = fighter._profile_texture(fighter.portrait_style)
+				fighter.portrait_marker.global_position = fighter.digital_portrait_position
+				fighter.portrait_marker.show()
+			elif is_instance_valid(fighter.portrait_marker):
+				fighter.portrait_marker.hide()
 			fighter.restore_drop_state(float(data.get("drop", 0.0)))
 			fighter.tag_emphasis = countdown_left > 0.0
 			fighter.visible = fighter.life_state == Fighter.LifeState.ACTIVE
