@@ -12,6 +12,9 @@ var requested_start := false
 var finished := false
 var corrupt_state := false
 var corrupted := false
+var leave_at_tick := -1
+var leaving := false
+var expected_players := 2
 var quit_at := -1.0
 var session: Node
 var client: Node
@@ -28,6 +31,10 @@ func _initialize() -> void:
 			server_url = argument.trim_prefix("--server=").trim_suffix("/")
 		elif argument == "--corrupt":
 			corrupt_state = true
+		elif argument.begins_with("--leave-at="):
+			leave_at_tick = int(argument.trim_prefix("--leave-at="))
+		elif argument.begins_with("--players="):
+			expected_players = maxi(2, int(argument.trim_prefix("--players=")))
 	if room_id.is_empty():
 		quit(2)
 		return
@@ -46,7 +53,7 @@ func _on_room_state(state: Dictionary) -> void:
 	if not opened_room and not client.local_player_id.is_empty():
 		opened_room = true
 		session.open_cloud_room("Rollback E2E", state)
-	if not opened_room or state.get("players", []).size() < 2:
+	if not opened_room or state.get("players", []).size() < expected_players:
 		return
 	if not session.is_host() and not sent_ready:
 		sent_ready = true
@@ -62,6 +69,12 @@ func _process(delta: float) -> bool:
 		return false
 	if session != null and session.phase == session.Phase.PLAYING and is_instance_valid(session.arena):
 		var tick: int = session.arena.frame
+		if leave_at_tick >= 0 and tick >= leave_at_tick and not leaving:
+			leaving = true
+			print("CLOUD_MATCH_LEFT name=%s frame=%d slot=%d" % [player_name, tick, session.my_id()])
+			client.disconnect_room()
+			quit_at = elapsed + 0.5
+			return false
 		if corrupt_state and not corrupted and tick >= 120:
 			corrupted = true
 			session.arena.fighters[0].position.x += 37.0
@@ -73,7 +86,8 @@ func _process(delta: float) -> bool:
 		session.submit_local_input(mask)
 		if tick >= 240 and not finished:
 			finished = true
-			var state_hash: int = session._rollback_state_hash(session.arena.snapshot())
+			var hash_state: Dictionary = session._rollback_states.get(240, session.arena.snapshot())
+			var state_hash: int = session._rollback_state_hash(hash_state)
 			print("CLOUD_MATCH_READY name=%s host=%s frame=%d hash=%d rollbacks=%d desyncs=%d repairs=%d delta=%d peers=%d" % [
 				player_name, session.is_host(), tick, state_hash, session.rollback_count, session.desync_count,
 				session.repair_count, client._expected_game_tick - client._local_game_tick, client.connections.size()])

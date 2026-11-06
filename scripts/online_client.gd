@@ -11,6 +11,7 @@ signal match_started(data: Dictionary)
 signal match_connection_progress(ready_count: int, total_count: int)
 signal match_connection_failed
 signal mesh_status_changed(ready_count: int, total_count: int, failed: bool)
+signal player_left(match_id: String, player_id: String, slot: int, effective_tick: int)
 signal kicked
 signal lobby_returned
 signal server_error(code: String)
@@ -24,8 +25,8 @@ const TIME_SYNC_INTERVAL_MSEC := 1000
 const TIME_SYNC_TIMEOUT_MSEC := 3000
 const PEER_DIAGNOSTIC_INTERVAL_MSEC := 1000
 const PEER_DIAGNOSTIC_TIMEOUT_MSEC := 3000
-const NET_PROTOCOL_VERSION := 2
-const NET_BUILD_TAG := "rollback30-packed15"
+const NET_PROTOCOL_VERSION := 3
+const NET_BUILD_TAG := "fixedslots-confirmedhash"
 const ICE_CONFIGURATION := {
 	"iceServers": [
 		{"urls": ["stun:stun.cloudflare.com:3478"]}
@@ -53,6 +54,7 @@ var _last_sent_input_tick := -1
 var _received_input_packets: Dictionary = {}
 var _last_received_input_tick: Dictionary = {}
 var _last_received_input_msec: Dictionary = {}
+var _last_received_game_frame: Dictionary = {}
 var _input_tick_gap_events: Dictionary = {}
 var _input_tick_gap_total: Dictionary = {}
 var _last_debug_refresh_msec := 0
@@ -74,6 +76,8 @@ var _peer_jitter_msec: Dictionary = {}
 var _peer_ping_timeouts: Dictionary = {}
 var _local_game_tick := -1
 var _expected_game_tick := -1
+var _confirmed_state_tick := -1
+var _tick_source := "-"
 var _input_delay_ticks := 0
 var _input_redundancy_ticks := 0
 var _max_rollback_ticks := 0
@@ -89,9 +93,11 @@ var _catchup_extra_ticks := 0
 var _max_catchup_steps := 0
 var _desync_count := 0
 var _repair_count := 0
+var _repair_sent_count := 0
 var _last_repair_tick := -1
 var _last_repair_age_ticks := 0
 var _last_repair_replayed_ticks := 0
+var _match_slots: Dictionary = {}
 
 func _ready() -> void:
 	_build_debug_overlay()
@@ -133,6 +139,7 @@ func disconnect_room() -> void:
 	_received_input_packets.clear()
 	_last_received_input_tick.clear()
 	_last_received_input_msec.clear()
+	_last_received_game_frame.clear()
 	_input_tick_gap_events.clear()
 	_input_tick_gap_total.clear()
 	_time_sync_pending = false
@@ -153,6 +160,8 @@ func disconnect_room() -> void:
 	_peer_ping_timeouts.clear()
 	_local_game_tick = -1
 	_expected_game_tick = -1
+	_confirmed_state_tick = -1
+	_tick_source = "-"
 	_input_delay_ticks = 0
 	_input_redundancy_ticks = 0
 	_max_rollback_ticks = 0
@@ -168,9 +177,11 @@ func disconnect_room() -> void:
 	_max_catchup_steps = 0
 	_desync_count = 0
 	_repair_count = 0
+	_repair_sent_count = 0
 	_last_repair_tick = -1
 	_last_repair_age_ticks = 0
 	_last_repair_replayed_ticks = 0
+	_match_slots.clear()
 	for remote_id: String in connections.keys():
 		_close_peer(remote_id)
 	connections.clear()
@@ -237,6 +248,8 @@ func server_time_msec() -> float:
 func update_game_sync_stats(stats: Dictionary) -> void:
 	_local_game_tick = int(stats.get("local_tick", -1))
 	_expected_game_tick = int(stats.get("expected_tick", -1))
+	_confirmed_state_tick = int(stats.get("confirmed_tick", -1))
+	_tick_source = str(stats.get("tick_source", "-"))
 	_input_delay_ticks = int(stats.get("input_delay", 0))
 	_input_redundancy_ticks = int(stats.get("input_redundancy", 0))
 	_max_rollback_ticks = int(stats.get("max_rollback", 0))
@@ -256,6 +269,7 @@ func update_game_sync_stats(stats: Dictionary) -> void:
 	_max_catchup_steps = int(stats.get("max_catchup_steps", 0))
 	_desync_count = int(stats.get("desyncs", 0))
 	_repair_count = int(stats.get("repairs", 0))
+	_repair_sent_count = int(stats.get("repairs_sent", 0))
 	_last_repair_tick = int(stats.get("last_repair_tick", -1))
 	_last_repair_age_ticks = int(stats.get("last_repair_age", 0))
 	_last_repair_replayed_ticks = int(stats.get("last_repair_replayed", 0))
@@ -338,11 +352,18 @@ func _handle_server_message(text: String) -> void:
 			chat_received.emit(str(message.get("from_id", "")), str(message.get("text", "")))
 		"match_start":
 			_queue_match_start(message)
+		"player_left":
+			var slot_value: Variant = message.get("slot")
+			var tick_value: Variant = message.get("effective_tick")
+			if str(message.get("match_id", "")) != "" and (slot_value is float or slot_value is int):
+				if tick_value is float or tick_value is int:
+					player_left.emit(str(message.match_id), str(message.get("player_id", "")), int(slot_value), int(tick_value))
 		"kicked":
 			_clear_pending_match()
 			kicked.emit()
 		"lobby_returned":
 			_clear_pending_match()
+			_match_slots.clear()
 			lobby_returned.emit()
 		"error":
 			var code := str(message.get("code", "UNKNOWN"))
@@ -432,14 +453,28 @@ func _close_peer(remote_id: String) -> void:
 	_peer_latest_rtt_msec.erase(remote_id)
 	_peer_jitter_msec.erase(remote_id)
 	_peer_ping_timeouts.erase(remote_id)
+	_last_received_game_frame.erase(remote_id)
+	_last_received_input_msec.erase(remote_id)
 	_log("peer removed %s" % remote_id.left(6))
 
 func _queue_match_start(message: Dictionary) -> void:
+	_reset_match_transport_stats()
+	_remember_match_slots(message.get("players", []))
 	_pending_match_start = message.duplicate(true)
 	_match_connect_deadline_msec = Time.get_ticks_msec() + MATCH_CONNECT_TIMEOUT_MSEC
 	_last_match_progress = ""
 	_log("Match start received; waiting for P2P channels")
 	_update_pending_match()
+
+func _reset_match_transport_stats() -> void:
+	_sent_input_packets = 0
+	_last_sent_input_tick = -1
+	_received_input_packets.clear()
+	_last_received_input_tick.clear()
+	_last_received_input_msec.clear()
+	_last_received_game_frame.clear()
+	_input_tick_gap_events.clear()
+	_input_tick_gap_total.clear()
 
 func _update_pending_match() -> void:
 	if _pending_match_start.is_empty():
@@ -537,6 +572,8 @@ func _record_received_input(remote_id: String, message: Dictionary) -> void:
 	_received_input_packets[remote_id] = int(_received_input_packets.get(remote_id, 0)) + 1
 	_last_received_input_tick[remote_id] = latest_tick
 	_last_received_input_msec[remote_id] = Time.get_ticks_msec()
+	if message.get("frame") is int:
+		_last_received_game_frame[remote_id] = int(message.frame)
 
 func _poll_peer_diagnostics() -> void:
 	var now := Time.get_ticks_msec()
@@ -631,6 +668,12 @@ func player_id_for_slot(slot: int) -> String:
 				return str(player.get("player_id", ""))
 	return ""
 
+func player_id_for_match_slot(slot: int) -> String:
+	for player_id: String in _match_slots:
+		if int(_match_slots[player_id]) == slot:
+			return player_id
+	return player_id_for_slot(slot)
+
 func slot_for_player_id(player_id: String) -> int:
 	for value: Variant in room_state.get("players", []):
 		if value is Dictionary:
@@ -638,6 +681,30 @@ func slot_for_player_id(player_id: String) -> int:
 			if str(player.get("player_id", "")) == player_id:
 				return int(player.get("slot", 0))
 	return 0
+
+func match_slot_for_player_id(player_id: String) -> int:
+	if _match_slots.has(player_id):
+		return int(_match_slots[player_id])
+	return slot_for_player_id(player_id)
+
+func estimated_remote_frame(remote_id: String, tick_msec: float) -> int:
+	if tick_msec <= 0.0 or not _last_received_game_frame.has(remote_id) or not _last_received_input_msec.has(remote_id):
+		return -1
+	var age_msec := maxi(0, Time.get_ticks_msec() - int(_last_received_input_msec[remote_id]))
+	var one_way_msec := maxf(0.0, float(_peer_rtt_msec.get(remote_id, 0.0)) * 0.5)
+	return int(_last_received_game_frame[remote_id]) + floori((float(age_msec) + one_way_msec) / tick_msec)
+
+func _remember_match_slots(players_value: Variant) -> void:
+	_match_slots.clear()
+	if not players_value is Array:
+		return
+	for value: Variant in players_value:
+		if value is Dictionary:
+			var player: Dictionary = value
+			var player_id := str(player.get("player_id", ""))
+			var slot := int(player.get("slot", 0))
+			if not player_id.is_empty() and slot > 0:
+				_match_slots[player_id] = slot
 
 func _on_rooms_received(code: int, data: Variant) -> void:
 	if code != 200 or not data is Dictionary or not data.get("rooms", []) is Array:
@@ -705,7 +772,7 @@ func _update_debug_text() -> void:
 	var cloud_latest := "측정 전" if _latest_time_sync_rtt_msec < 0 else "%dms" % _latest_time_sync_rtt_msec
 	var cloud_best := "-" if _best_time_sync_rtt_msec == 2147483647 else "%dms" % _best_time_sync_rtt_msec
 	var build_version := str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
-	var host_slot := slot_for_player_id(str(room_state.get("host_id", "")))
+	var host_slot := match_slot_for_player_id(str(room_state.get("host_id", "")))
 	var host_text := "-" if host_slot < 1 else "P%d" % host_slot
 	var physics_rate := int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
 	var lines: Array[String] = [
@@ -729,9 +796,9 @@ func _update_debug_text() -> void:
 	lines.append("━━━━━━━━ 경기 동기화 ━━━━━━━━━━━━━━━━━━━━━━━━━")
 	lines.append("송신 입력 %d  |  마지막 tick %d" % [_sent_input_packets, _last_sent_input_tick])
 	if _local_game_tick >= 0 and _expected_game_tick >= 0:
-		lines.append("tick 현재 %d / 목표 %d / 차이 %+d  |  ROLLBACK %d  DESYNC %d  REPAIR %d" % [
+		lines.append("tick 현재 %d / 목표 %d / 차이 %+d  |  확정 %d  |  기준 %s  |  ROLLBACK %d  DESYNC %d  REPAIR 받은 %d/보낸 %d" % [
 			_local_game_tick, _expected_game_tick, _expected_game_tick - _local_game_tick,
-			_rollback_count, _desync_count, _repair_count
+			_confirmed_state_tick, _tick_source, _rollback_count, _desync_count, _repair_count, _repair_sent_count
 		])
 		lines.append("입력 지연 %dt  |  중복 %dt  |  최대 롤백 %dt" % [_input_delay_ticks, _input_redundancy_ticks, _max_rollback_ticks])
 		lines.append("롤백 깊이  일반 1~6:%d  주의 7~12:%d  큼 13~20:%d  긴급 21~30:%d  |  최대 %dt" % [
@@ -746,7 +813,7 @@ func _update_debug_text() -> void:
 	_debug_label.text = "\n".join(lines)
 
 func _peer_debug_line(remote_id: String, now: int) -> String:
-	var slot := slot_for_player_id(remote_id)
+	var slot := match_slot_for_player_id(remote_id)
 	var player_name := _display_name_for_player_id(remote_id)
 	var state := "OPEN" if _channel_is_open(remote_id) else _connection_state_for_peer(remote_id)
 	var rtt := "측정 전"
@@ -756,14 +823,16 @@ func _peer_debug_line(remote_id: String, now: int) -> String:
 	if _last_received_input_msec.has(remote_id):
 		rx_age = now - int(_last_received_input_msec[remote_id])
 	var age_text := "없음" if rx_age < 0 else "%dms" % rx_age
+	var peer_frame := estimated_remote_frame(remote_id, 1000.0 / 60.0)
+	var frame_delta_text := "-" if peer_frame < 0 or _local_game_tick < 0 else "%+dt" % (peer_frame - _local_game_tick)
 	var buffered_bytes := 0
 	if connections.has(remote_id):
 		var channel: WebRTCDataChannel = (connections[remote_id] as Dictionary).channel
 		buffered_bytes = channel.get_buffered_amount()
-	return "P%d %s  |  %s  |  RTT %s  |  늦음 %d회/최대 %dt  |  대기 %s  |  ping 실패 %d\n    입력 %d개  |  최근 %s  |  tick %d  |  건너뜀 %d회/%dt" % [
+	return "P%d %s  |  %s  |  RTT %s  |  늦음 %d회/최대 %dt  |  대기 %s  |  ping 실패 %d\n    입력 %d개  |  최근 %s  |  입력 tick %d  |  실제 frame 차이 %s  |  건너뜀 %d회/%dt" % [
 		slot, player_name.left(8), state, rtt, int(_late_input_counts.get(slot, 0)), int(_late_input_max_ticks.get(slot, 0)),
 		_format_bytes(buffered_bytes), int(_peer_ping_timeouts.get(remote_id, 0)),
-		int(_received_input_packets.get(remote_id, 0)), age_text, int(_last_received_input_tick.get(remote_id, -1)),
+		int(_received_input_packets.get(remote_id, 0)), age_text, int(_last_received_input_tick.get(remote_id, -1)), frame_delta_text,
 		int(_input_tick_gap_events.get(remote_id, 0)), int(_input_tick_gap_total.get(remote_id, 0)),
 	]
 

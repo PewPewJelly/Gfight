@@ -217,6 +217,20 @@ func _resolve_result() -> void:
 		fighter.attack_requested = false
 	match_finished.emit(winner_id)
 
+func fighter_for_id(player_id: int) -> Fighter:
+	for fighter: Fighter in fighters:
+		if fighter.player_id == player_id:
+			return fighter
+	return null
+
+func remove_participant(player_id: int) -> bool:
+	var fighter := fighter_for_id(player_id)
+	if fighter == null or not fighter.forfeit():
+		return false
+	_resolve_result()
+	_update_hud()
+	return true
+
 func _spawn_location(fighter: Fighter) -> Vector2:
 	var candidates: Array[Vector2] = []
 	for surface in platforms:
@@ -299,6 +313,8 @@ func _apply_snapshot(state: Dictionary, allow_older: bool) -> void:
 			fighter.percent = data.percent
 			fighter.damage_received = data.damage
 			fighter.life_state = data.life
+			fighter.collision_layer = 2 if fighter.life_state == Fighter.LifeState.ACTIVE else 0
+			fighter.collision_mask = 3 if fighter.life_state == Fighter.LifeState.ACTIVE else 0
 			fighter.invulnerability_left = data.invulnerability
 			fighter.respawn_left = data.respawn
 			fighter.hitstun_left = data.hitstun

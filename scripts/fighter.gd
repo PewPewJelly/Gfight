@@ -130,6 +130,25 @@ func ring_out() -> bool:
 	stock_lost.emit(self)
 	return true
 
+## Removes a disconnected participant from combat without freeing the node.
+## Keeping the node lets older rollback snapshots restore and replay safely.
+func forfeit() -> bool:
+	if stocks == 0 and life_state == LifeState.ELIMINATED:
+		return false
+	stocks = 0
+	percent = 0.0
+	damage_received = 0.0
+	life_state = LifeState.ELIMINATED
+	collision_layer = 0
+	collision_mask = 0
+	invulnerability_left = 0.0
+	respawn_left = 0.0
+	last_attacker_id = 0
+	_clear_actions()
+	hide()
+	stock_lost.emit(self)
+	return true
+
 func respawn(at: Vector2) -> bool:
 	if life_state != LifeState.WAITING or stocks <= 0:
 		return false
