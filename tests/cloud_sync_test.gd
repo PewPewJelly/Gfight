@@ -19,6 +19,14 @@ func run() -> void:
 	session._reset_rollback()
 	online_client._time_sync_samples = 1
 	online_client._server_time_offset_msec = 0.0
+	online_client._record_received_input("peer-test", {"latest_tick": 10})
+	online_client._record_received_input("peer-test", {"latest_tick": 14})
+	check(online_client._input_tick_gap_events.get("peer-test", 0) == 1, "Input tick jumps are counted per peer")
+	check(online_client._input_tick_gap_total.get("peer-test", 0) == 3, "Skipped input ticks are counted per peer")
+	online_client._peer_ping_sequence["peer-test"] = 1
+	online_client._peer_ping_sent_msec["peer-test"] = Time.get_ticks_msec() - 20
+	online_client._handle_peer_pong("peer-test", {"sequence": 1})
+	check(online_client._peer_latest_rtt_msec.get("peer-test", -1) >= 20, "Peer diagnostic pong records application RTT")
 
 	arena = preload("res://arena.tscn").instantiate()
 	arena.standalone = false

@@ -1028,7 +1028,7 @@ func _advance_to_cloud_tick() -> void:
 		if phase != Phase.PLAYING or arena.ended:
 			break
 		arena.simulate_tick(FIXED_TICK_SECONDS)
-	OnlineClient.update_game_sync_stats(arena.frame, expected_tick, desync_count, repair_count)
+	OnlineClient.update_game_sync_stats(arena.frame, expected_tick, rollback_count, desync_count, repair_count)
 
 func _broadcast_snapshot(state: Dictionary) -> void:
 	if not is_offline() and multiplayer.get_peers().size() > 0:
