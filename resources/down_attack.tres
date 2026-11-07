@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://bsn3l0qjild6x"]
+
+[ext_resource type="Script" uid="uid://csbefiofeqlia" path="res://scripts/attack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+damage = 12.0
+percent_increase = 15.0
+base_launch_speed = 400.0
+hitstun_seconds = 0.4
+reach = 85.0
+width = 80.0
+launch_direction = Vector2(0, 1)
+anchor = 2

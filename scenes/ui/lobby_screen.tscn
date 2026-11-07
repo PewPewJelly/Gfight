@@ -1,0 +1,435 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/lobby_screen.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/lobby/character_art.gd" id="2_art"]
+[ext_resource type="Script" path="res://scripts/ui/lobby/bubble_view.gd" id="3_bubble"]
+[ext_resource type="Script" path="res://scripts/ui/lobby/bubble_input.gd" id="4_input"]
+[ext_resource type="Script" path="res://scripts/ui/lobby/round_button.gd" id="5_round"]
+[ext_resource type="Script" path="res://scripts/ui/lobby/slant_box.gd" id="6_box"]
+[ext_resource type="Script" path="res://scripts/ui/lobby/slant_tab.gd" id="7_tab"]
+[ext_resource type="Script" path="res://scripts/ui/lobby/chip.gd" id="8_chip"]
+[ext_resource type="Texture2D" path="res://assets/icons/star.svg" id="9_star"]
+[ext_resource type="Texture2D" path="res://assets/icons/info.svg" id="10_info"]
+
+[node name="LobbyScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.14901961, 0.14901961, 0.14901961, 1)
+
+[node name="LobbyStage" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 1080.0
+mouse_filter = 2
+
+[node name="StageFrame" type="Panel" parent="LobbyStage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 1080.0
+mouse_filter = 2
+
+[node name="Stage" type="Control" parent="LobbyStage"]
+unique_name_in_owner = true
+clip_contents = true
+layout_mode = 0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = 1915.0
+offset_bottom = 1075.0
+mouse_filter = 2
+
+[node name="Stripes" type="Control" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Portrait" type="Control" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 230.0
+offset_top = 300.0
+offset_right = 670.0
+offset_bottom = 740.0
+mouse_filter = 2
+
+[node name="PortraitShadow" type="Control" parent="LobbyStage/Stage/Portrait"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 70.0
+offset_top = 462.0
+offset_right = 370.0
+offset_bottom = 498.0
+mouse_filter = 2
+
+[node name="PortraitArt" type="TextureRect" parent="LobbyStage/Stage/Portrait"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 440.0
+offset_bottom = 440.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+script = ExtResource("2_art")
+
+[node name="MyBubbleAnchor" type="Control" parent="LobbyStage/Stage/Portrait"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 176.0
+offset_top = -17.6
+offset_right = 176.0
+offset_bottom = -17.6
+mouse_filter = 2
+
+[node name="MyBubble" type="Control" parent="LobbyStage/Stage/Portrait/MyBubbleAnchor"]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+script = ExtResource("3_bubble")
+
+[node name="ChatInput" type="Control" parent="LobbyStage/Stage/Portrait/MyBubbleAnchor"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = -210.0
+offset_top = -82.0
+offset_right = 210.0
+offset_bottom = -16.0
+script = ExtResource("4_input")
+
+[node name="ChatHintButton" type="Button" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+z_index = 10
+layout_mode = 0
+offset_left = 40.0
+offset_top = 812.0
+offset_right = 220.0
+offset_bottom = 856.0
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+
+[node name="MyCard" type="Control" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+z_index = 10
+layout_mode = 0
+offset_top = 874.0
+offset_right = 600.0
+offset_bottom = 1070.0
+mouse_filter = 2
+
+[node name="MyCardShape" type="Control" parent="LobbyStage/Stage/MyCard"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MyCharacterName" type="Label" parent="LobbyStage/Stage/MyCard"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 40.0
+offset_top = 28.0
+offset_right = 440.0
+offset_bottom = 64.0
+theme_override_colors/font_color = Color(0.41960785, 0.41960785, 0.41960785, 1)
+theme_override_font_sizes/font_size = 26
+
+[node name="MyNickname" type="Label" parent="LobbyStage/Stage/MyCard"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 36.0
+offset_top = 66.0
+offset_right = 396.0
+offset_bottom = 186.0
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 88
+text_overrun_behavior = 3
+
+[node name="MyHostStar" type="TextureRect" parent="LobbyStage/Stage/MyCard"]
+unique_name_in_owner = true
+self_modulate = Color(0.8509804, 0.63529414, 0.101960786, 1)
+layout_mode = 0
+offset_left = 300.0
+offset_top = 98.0
+offset_right = 356.0
+offset_bottom = 154.0
+mouse_filter = 2
+texture = ExtResource("9_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ReadyButton" type="BaseButton" parent="LobbyStage/Stage/MyCard"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 474.0
+offset_top = 70.0
+offset_right = 574.0
+offset_bottom = 170.0
+script = ExtResource("5_round")
+icon_size = 56.0
+
+[node name="ContentHost" type="Control" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+z_index = 10
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="RightBand" type="Control" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+z_index = 5
+layout_mode = 0
+offset_left = 1680.0
+offset_top = -16.0
+offset_right = 2080.0
+offset_bottom = 1086.0
+mouse_filter = 2
+script = ExtResource("6_box")
+fill = Color(0.47843137, 0.47843137, 0.47843137, 1)
+border_width = 0.0
+corner_radius = 0.0
+
+[node name="TabRail" type="Control" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+z_index = 20
+layout_mode = 0
+mouse_filter = 2
+
+[node name="TabRoom" type="BaseButton" parent="LobbyStage/Stage/TabRail"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 1706.0
+offset_top = 30.0
+offset_right = 1834.0
+offset_bottom = 86.0
+script = ExtResource("7_tab")
+
+[node name="TabCharacter" type="BaseButton" parent="LobbyStage/Stage/TabRail"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 1720.0
+offset_top = 98.0
+offset_right = 1848.0
+offset_bottom = 154.0
+script = ExtResource("7_tab")
+
+[node name="TabSettings" type="BaseButton" parent="LobbyStage/Stage/TabRail"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 1735.0
+offset_top = 166.0
+offset_right = 1863.0
+offset_bottom = 222.0
+script = ExtResource("7_tab")
+
+[node name="ReadyArrow" type="Control" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+z_index = 20
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Header" type="HBoxContainer" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+z_index = 30
+layout_mode = 0
+offset_left = 36.0
+offset_top = 28.0
+offset_right = 636.0
+offset_bottom = 108.0
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="BackButton" type="BaseButton" parent="LobbyStage/Stage/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+script = ExtResource("5_round")
+icon = 4
+
+[node name="RoomNameBox" type="PanelContainer" parent="LobbyStage/Stage/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+
+[node name="RoomNameRow" type="HBoxContainer" parent="LobbyStage/Stage/Header/RoomNameBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="RoomNameLabel" type="Label" parent="LobbyStage/Stage/Header/RoomNameBox/RoomNameRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.13333334, 0.13333334, 0.13333334, 1)
+theme_override_font_sizes/font_size = 38
+text_overrun_behavior = 3
+
+[node name="InfoButton" type="Button" parent="LobbyStage/Stage/Header/RoomNameBox/RoomNameRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(54, 54)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+icon = ExtResource("10_info")
+icon_alignment = 1
+expand_icon = true
+
+[node name="RoomChips" type="HBoxContainer" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+z_index = 20
+layout_mode = 0
+offset_left = 36.0
+offset_top = 132.0
+offset_right = 636.0
+offset_bottom = 176.0
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="MapChip" type="PanelContainer" parent="LobbyStage/Stage/RoomChips"]
+unique_name_in_owner = true
+layout_mode = 2
+script = ExtResource("8_chip")
+
+[node name="ReadyChip" type="PanelContainer" parent="LobbyStage/Stage/RoomChips"]
+unique_name_in_owner = true
+layout_mode = 2
+script = ExtResource("8_chip")
+
+[node name="InfoPopover" type="PanelContainer" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+visible = false
+z_index = 30
+custom_minimum_size = Vector2(470, 0)
+layout_mode = 0
+offset_left = 36.0
+offset_top = 124.0
+offset_right = 506.0
+offset_bottom = 284.0
+
+[node name="InfoColumn" type="VBoxContainer" parent="LobbyStage/Stage/InfoPopover"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="AddressLabel" type="Label" parent="LobbyStage/Stage/InfoPopover/InfoColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.13333334, 0.13333334, 0.13333334, 1)
+theme_override_font_sizes/font_size = 40
+
+[node name="CopyButton" type="Button" parent="LobbyStage/Stage/InfoPopover/InfoColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 24
+
+[node name="ModalLayer" type="Control" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+visible = false
+z_index = 50
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Dimmer" type="ColorRect" parent="LobbyStage/Stage/ModalLayer"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101960786, 0.101960786, 0.101960786, 0.5)
+
+[node name="ModalBox" type="Control" parent="LobbyStage/Stage/ModalLayer"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 565.0
+offset_top = 385.0
+offset_right = 1345.0
+offset_bottom = 685.0
+script = ExtResource("6_box")
+fill = Color(0.95686275, 0.95686275, 0.95686275, 1)
+corner_radius = 22.0
+shadow_offset = 6.0
+
+[node name="ModalColumn" type="VBoxContainer" parent="LobbyStage/Stage/ModalLayer/ModalBox"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 48.0
+offset_top = 36.0
+offset_right = 732.0
+offset_bottom = 264.0
+theme_override_constants/separation = 24
+
+[node name="ModalTitle" type="Label" parent="LobbyStage/Stage/ModalLayer/ModalBox/ModalColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.13333334, 0.13333334, 0.13333334, 1)
+theme_override_font_sizes/font_size = 40
+autowrap_mode = 3
+
+[node name="ModalBody" type="VBoxContainer" parent="LobbyStage/Stage/ModalLayer/ModalBox/ModalColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ModalButtons" type="HBoxContainer" parent="LobbyStage/Stage/ModalLayer/ModalBox/ModalColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 2
+
+[node name="Toast" type="PanelContainer" parent="LobbyStage/Stage"]
+unique_name_in_owner = true
+visible = false
+z_index = 50
+layout_mode = 0
+offset_left = 755.0
+offset_top = 845.0
+offset_right = 1155.0
+offset_bottom = 905.0
+mouse_filter = 2
+
+[node name="ToastLabel" type="Label" parent="LobbyStage/Stage/Toast"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 27
+horizontal_alignment = 1
