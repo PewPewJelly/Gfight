@@ -466,7 +466,7 @@ mouse_filter = 2
 [node name="HintTitle" type="Label" parent="HintCorner/CommandHint"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 275.4
+offset_left = 254.63
 offset_right = 680.4
 offset_bottom = 84.24
 theme_override_colors/font_color = Color(0.078431375, 0.078431375, 0.08627451, 1)
@@ -476,7 +476,7 @@ text = "Start a Match"
 
 [node name="Rule" type="ColorRect" parent="HintCorner/CommandHint"]
 layout_mode = 0
-offset_left = 275.4
+offset_left = 254.63
 offset_top = 87.48
 offset_right = 680.4
 offset_bottom = 90.72
@@ -486,7 +486,7 @@ color = Color(0.078431375, 0.078431375, 0.08627451, 1)
 [node name="HintSub" type="Label" parent="HintCorner/CommandHint"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 278.64
+offset_left = 257.87
 offset_top = 93.96
 offset_right = 680.4
 offset_bottom = 122.0
