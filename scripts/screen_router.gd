@@ -13,7 +13,7 @@ const SCREEN_SCENES: Dictionary = {
 var current_id: ScreenTypes.ScreenId = ScreenTypes.ScreenId.MAIN_MENU
 var current: Control
 ## Mode of the last lobby opened, so leaving a room returns to where the player came from:
-## training → main menu (PLAY submenu open), online → the online screen.
+## training → main menu, online → the online screen.
 var _room_mode: ScreenTypes.RoomMode = ScreenTypes.RoomMode.NONE
 
 func _ready() -> void:
@@ -60,7 +60,7 @@ func _on_exit_requested(result: RefCounted, from: ScreenTypes.ScreenId) -> void:
 		if online_result.route == OnlineExitResult.Route.LOBBY:
 			go_to(ScreenTypes.ScreenId.LOBBY, _lobby_data(online_result.room_mode, online_result.role))
 		else:
-			go_to(ScreenTypes.ScreenId.MAIN_MENU, _menu_data(MainMenuScreen.PlayItem.ONLINE))
+			go_to(ScreenTypes.ScreenId.MAIN_MENU)
 	elif result is LobbyExitResult:
 		var lobby_result := result as LobbyExitResult
 		if lobby_result.route == LobbyExitResult.Route.MATCH:
@@ -84,11 +84,12 @@ func _on_session_changed() -> void:
 		Session.toast = ""
 		_leave_room(notice)
 
-## After a room ends: training goes back to the PLAY submenu, online to the online screen
-## (which shows the notice as a toast).
+## After a room ends: training goes back to the main menu, online to the online screen
+## (which shows the notice as a toast). The main menu always opens fresh: intro replayed,
+## PLAY selected, submenu closed.
 func _leave_room(notice: String) -> void:
 	if _room_mode == ScreenTypes.RoomMode.TRAINING:
-		go_to(ScreenTypes.ScreenId.MAIN_MENU, _menu_data(MainMenuScreen.PlayItem.TRAINING))
+		go_to(ScreenTypes.ScreenId.MAIN_MENU)
 	else:
 		go_to(ScreenTypes.ScreenId.ONLINE, _online_data(notice))
 
@@ -101,12 +102,6 @@ func _lobby_data(room_mode: ScreenTypes.RoomMode, role: ScreenTypes.Role) -> Lob
 func _online_data(notice: String) -> OnlineEnterData:
 	var data := OnlineEnterData.new()
 	data.notice = notice
-	return data
-
-func _menu_data(play_item: MainMenuScreen.PlayItem) -> MainMenuEnterData:
-	var data := MainMenuEnterData.new()
-	data.open_play_menu = true
-	data.play_item = play_item
 	return data
 
 ## Starts fullscreen (project setting); F11 or Alt+Enter switches to a window, e.g. to run

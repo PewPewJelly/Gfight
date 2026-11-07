@@ -108,7 +108,7 @@ func check_main_menu() -> void:
 		"왼쪽: 흰 패널 + 세로 제목 %s, 오른쪽: 노란 그라데이션" % menu.title_label.text,
 		"메뉴(9도 기울임): %s / %s / %s, 선택 항목은 검은 삼각형 + 흰 글자 + 노란 마지막 글자" % [
 			menu.item_text(menu.Item.PLAY), menu.item_text(menu.Item.GUIDEBOOK), menu.item_text(menu.Item.SETTINGS)],
-		"오른쪽 아래: \"%s\" / \"%s\" / [Enter] Confirm [Esc] Close" % [menu.hint_title.text, menu.hint_sub.text],
+		"오른쪽 아래: \"%s\" / \"%s\" / [J·Enter] Confirm [Esc] Close" % [menu.hint_title.text, menu.hint_sub.text],
 	])
 
 func press_action(action: StringName) -> void:
@@ -157,7 +157,7 @@ func check_play_menu() -> void:
 		"PLAY 오른쪽 위에 찢긴 구멍 2개: 위 \"%s / %s\", 아래 \"%s / %s\"" % [
 			menu.mode_text(menu.PlayItem.ONLINE), UiStyle.MENU_ONLINE, menu.mode_text(menu.PlayItem.TRAINING), UiStyle.MODE_TRAINING],
 		"선택한 항목은 노란 글자 + ▶, 다른 항목은 흰 글자. GUIDEBOOK / SETTINGS는 35%로 흐림",
-		"오른쪽 아래: \"%s\" / \"%s\" / [Enter] Confirm [Esc] %s" % [menu.hint_title.text, menu.hint_sub.text, menu.esc_action.text],
+		"오른쪽 아래: \"%s\" / \"%s\" / [J·Enter] Confirm [Esc] %s" % [menu.hint_title.text, menu.hint_sub.text, menu.esc_action.text],
 	])
 	press_action(&"ui_cancel")
 	await frames(1)
@@ -214,7 +214,8 @@ func check_online_screen() -> void:
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU, "Esc returns to the main menu")
 	var menu: Control = router.current
-	check(menu.play_menu_open and menu.play_selected == menu.PlayItem.ONLINE, "Back from online reopens the PLAY submenu on ONLINE")
+	check_fresh_menu(menu, "Back from online")
+	menu.open_play_menu(menu.PlayItem.ONLINE, false)
 	menu.confirm_mode()
 	await frames(1)
 
@@ -394,7 +395,8 @@ func check_training() -> void:
 	router.current._on_back_pressed()
 	await frames(1)
 	var menu: Control = router.current
-	menu.select_mode(menu.PlayItem.TRAINING)
+	check_fresh_menu(menu, "Back from online again")
+	menu.open_play_menu(menu.PlayItem.TRAINING, false)
 	menu.confirm_mode()
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.LOBBY and session.training_mode, "훈련장 opens a training lobby")
@@ -467,7 +469,19 @@ func check_training() -> void:
 	await frames(1)
 	check(router.current_id == ScreenTypes.ScreenId.MAIN_MENU and session.phase == session.Phase.MENU, "Leaving training returns to the main menu")
 	menu = router.current
-	check(menu.play_menu_open and menu.play_selected == menu.PlayItem.TRAINING, "Main menu reopens the PLAY submenu on TRAINING")
+	check_fresh_menu(menu, "Leaving training")
+	# J (the attack key) confirms like Enter, as the J·Enter hint says.
+	menu._unhandled_input(_key(KEY_J))
+	check(menu.play_menu_open and menu.play_selected == menu.PlayItem.ONLINE, "J confirms PLAY and opens the submenu on ONLINE")
+	menu.close_play_menu()
+
+## Coming back to the main menu from another screen replays the intro and resets the
+## selection: PLAY selected, PLAY submenu closed, ONLINE first when it opens again.
+func check_fresh_menu(menu: Control, from: String) -> void:
+	check(menu.selected == menu.Item.PLAY and not menu.play_menu_open and not menu.play_submenu.visible, "%s: main menu opens fresh (PLAY, submenu closed)" % from)
+	check(menu.play_selected == menu.PlayItem.ONLINE, "%s: submenu selection is reset" % from)
+	check(menu._intro != null and menu._intro.is_running(), "%s: intro plays again" % from)
+	check(menu.title_art.position.y > menu._title_rest.y, "%s: GFIGHT starts low again" % from)
 
 func _key(keycode: Key) -> InputEventKey:
 	var event := InputEventKey.new()

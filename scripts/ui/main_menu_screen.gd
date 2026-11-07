@@ -2,14 +2,15 @@ class_name MainMenuScreen
 extends Control
 ## Main menu from the Figma mock "S1 Main Menu" (1920x1080, 2026-11-05). The art is laid out in
 ## 1920x1080 design units under Canvas and scaled to fit the window. Keyboard: ↑/↓ move the
-## selection, Enter confirms, Esc closes the game. Mouse: hover selects, click confirms.
+## selection, J or Enter confirms, Esc closes the game. Mouse: hover selects, click confirms.
 ## 가이드북 / 설정 have no screen yet, so they can be selected but not confirmed.
 ## Confirming PLAY opens the PLAY submenu (Figma "S1 Main Menu - Play state"): ONLINE and
-## TRAINING, each in its own torn hole above and right of PLAY. ↑/↓ move between them, Enter
-## confirms, Esc closes the submenu. ONLINE opens the temporary online screen; TRAINING opens
+## TRAINING, each in its own torn hole above and right of PLAY. ↑/↓ move between them, J or
+## Enter confirms, Esc closes the submenu. ONLINE opens the temporary online screen; TRAINING opens
 ## the training lobby directly.
 ## When the game starts, the GFIGHT title slides up and the photo slides in from the right
-## (Figma prototype motion, played once per launch instead of looping).
+## (Figma prototype motion). The router builds a new menu every time it is shown, so the intro
+## replays and the selection starts fresh (PLAY, submenu closed) whenever the player comes back.
 ## Every time an item is selected, the black wedge grows up from its base line behind the word
 ## and a yellow slanted band sweeps through the word (only inside the letters), leaving the
 ## last letter yellow.
@@ -48,9 +49,6 @@ const WEDGE_BASE_Y: float = 590.0
 @export var submenu_pop_stagger: float = 0.04
 ## GUIDEBOOK / SETTINGS opacity while the submenu is open (Figma: 35 %).
 @export var submenu_dim_alpha: float = 0.35
-
-## The intro plays only the first time the menu opens after launch.
-static var _intro_played: bool = false
 
 var selected: Item = Item.PLAY
 var _leaving: bool = false
@@ -128,18 +126,13 @@ func _ready() -> void:
 	_fit_canvas()
 	_title_rest = title_art.position + Vector2(0.0, intro_title_to_y)
 	_photo_rest = player_photo.position
-	var play_intro := not _intro_played
 	# PLAY is selected from the start; its sweep waits until the title has risen.
-	_sweep_delay = intro_title_duration if play_intro else 0.0
+	_sweep_delay = intro_title_duration
 	select(Item.PLAY)
-	if play_intro:
-		_intro_played = true
-		_play_intro()
-	else:
-		skip_intro()
+	_play_intro()
 
-## data: MainMenuEnterData or null. Coming back from the online screen or the training lobby
-## reopens the PLAY submenu on the mode the player left from.
+## data: MainMenuEnterData or null. The router passes null, so the menu opens fresh; the data
+## is kept for opening the PLAY submenu directly (tests, screenshots).
 func enter(data: RefCounted) -> void:
 	_leaving = false
 	var menu_data := data as MainMenuEnterData
@@ -156,7 +149,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			select_mode(wrapi(play_selected - 1, 0, _holes.size()))
 		elif event.is_action_pressed(&"ui_down", true):
 			select_mode(wrapi(play_selected + 1, 0, _holes.size()))
-		elif event.is_action_pressed(&"ui_accept"):
+		elif _is_confirm(event):
 			confirm_mode()
 		elif event.is_action_pressed(&"ui_cancel"):
 			close_play_menu()
@@ -168,7 +161,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		select(wrapi(selected - 1, 0, _items.size()))
 	elif event.is_action_pressed(&"ui_down", true):
 		select(wrapi(selected + 1, 0, _items.size()))
-	elif event.is_action_pressed(&"ui_accept"):
+	elif _is_confirm(event):
 		confirm()
 	elif event.is_action_pressed(&"ui_cancel"):
 		get_tree().quit()
@@ -299,6 +292,14 @@ func _on_hole_gui_input(event: InputEvent, item: int) -> void:
 		return
 	select_mode(item)
 	confirm_mode()
+
+## Enter (ui_accept) or J, the attack key, as shown in the J·Enter hint. J is checked here
+## and not added to ui_accept, because ui_accept also submits text fields on other screens.
+func _is_confirm(event: InputEvent) -> bool:
+	if event.is_action_pressed(&"ui_accept"):
+		return true
+	var key := event as InputEventKey
+	return key != null and key.pressed and not key.echo and key.physical_keycode == KEY_J
 
 func _update_hint() -> void:
 	esc_action.text = UiStyle.MAIN_KEY_BACK if play_menu_open else UiStyle.MAIN_KEY_CLOSE
