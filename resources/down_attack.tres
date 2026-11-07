@@ -11,3 +11,4 @@ hitstun_seconds = 0.4
 reach = 85.0
 width = 80.0
 launch_direction = Vector2(0, 1)
+anchor = 2

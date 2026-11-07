@@ -30,7 +30,7 @@
 | 네트워크 | ENet, 호스트 권한형, 최대 4인, 포트 27840 (테스트 27849), 접속 제한 8초 | 사람 |
 | RPC 채널 | 0 = reliable 이벤트, 1 = 상태 스냅샷, 2 = 입력 | 사람 |
 | 충돌 레이어 | 1 = 월드(땅·플랫폼), 2 = 플레이어 | 사람 |
-| 조정값 | `resources/*.tres` (`MovementSettings`, `CombatRules`, `AttackData`) | 기획 |
+| 조정값 | `resources/*.tres` (`MovementSettings`, `CombatRules`, `AttackData`, `SkillData`). 캐릭터별 값은 `resources/characters/<id>.tres` (`CharacterDef`) | 기획 |
 | 폴더 | 기존 씬 `*.tscn` 루트(`main.tscn`, `arena.tscn`), 화면 씬 `scenes/ui/`, 화면 스크립트 `scripts/ui/`, 데이터 클래스 `scripts/data/`, 그 외 스크립트 `scripts/`, 리소스 `resources/`, 그림 파일 `assets/`(SVG, 하위 `icons/`·`start_game/`·`characters/`·`maps/`), 테스트 `tests/` | 사람 |
 | UI 원칙 | 기본 도형과 글자만. 아이콘·캐릭터·맵 그림은 `assets/`의 SVG 파일을 `TextureRect` 또는 `draw_texture_rect()`로 표시한다. 단색 아이콘은 흰색으로 그려져 있으므로 색은 `self_modulate`(또는 draw 색 인자)로 입힌다. 상자·테두리·그림자·줄무늬 같은 UI 도형은 계속 `_draw()`/StyleBox로 그린다. 그림 목록과 출처는 `assets/README.md` | 기획 |
 | 입력 장치 | 게임 조작은 키보드. 메뉴 화면은 마우스 전용(키보드·패드 포커스 이동 없음), 단축키는 Enter/Esc만 | 기획 |
@@ -193,7 +193,7 @@ enum Phase { MENU, CONNECTING, LOBBY, CLOSING, PLAYING, RESULT }
 main.tscn
 └─ ScreenRouter (Control)               화면 1개만 자식으로 두고 교체
    └─ <현재 화면>.tscn                   예: StartGameScreen
-        └ exit_requested(result) ──▶ ScreenRouter.go_to(...)
+		└ exit_requested(result) ──▶ ScreenRouter.go_to(...)
 
 Session (autoload)                       연결, 방, 준비, 경기 시작·종료, 결과 확인
   └─ Arena (FightArena, 경기 중에만)      이동·충돌·공격·스톡·승패 (호스트만 계산)
@@ -212,9 +212,9 @@ Session (autoload)                       연결, 방, 준비, 경기 시작·종
 
 ```
 [사용자 입력] → 화면.gd 핸들러 → Session.<함수>()  ─(RPC, 호스트 검증)→ 호스트 Session
-                                                                      │
+																	  │
 화면.gd._on_session_changed() ← Session.changed ← 상태 갱신 ←─(RPC)───┘
-        └ _apply_state(state)  ← 표시 변경은 이 함수 한 곳에서만
+		└ _apply_state(state)  ← 표시 변경은 이 함수 한 곳에서만
 ```
 
 - 화면 스크립트는 **로직 함수**(`_on_*`, 상태 전이)와 **표시 함수**(`_apply_state`)를 나눈다. 명세서 섹션 3(UI)과 4(로직)의 구분과 같다.

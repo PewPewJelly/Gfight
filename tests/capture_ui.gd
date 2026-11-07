@@ -43,13 +43,13 @@ func run() -> void:
 	menu.confirm_mode()
 	await process_frame
 	var online: Control = router.current
-	online.fade.color.a = 0.0
-	await capture("03_online_temp")
-	online._on_join_room_pressed()
-	online.address_field.text = "1.2.3.4:abc"
-	online._on_join_confirm_pressed()
-	await capture("04_join_popup_error")
-	online._on_join_cancel_pressed()
+	online._show_rooms([
+		{"room_id": "room-a", "name": "우진이의 방", "host_name": "정우진", "player_count": 1, "max_players": 4, "status": "lobby"},
+		{"room_id": "room-b", "name": "연습 상대 구함", "host_name": "김동휘", "player_count": 3, "max_players": 4, "status": "lobby"},
+		{"room_id": "room-c", "name": "이미 시작한 방", "host_name": "이준배", "player_count": 4, "max_players": 4, "status": "in_game"},
+	])
+	online.toast.visible = false
+	await capture("03_online_public_rooms")
 	# Online lobby as the host with two guests (stand-ins: the host's room is filled directly).
 	session._open_room(ScreenTypes.RoomMode.ONLINE, "192.168.0.5:27840")
 	session.room.name = "금요일 난투"
@@ -102,7 +102,7 @@ func run() -> void:
 	player.reset_round(Vector2(560, 334))
 	dummy.reset_round(Vector2(615, 334))
 	player.facing = 1.0
-	player.simulate(1.0 / 60.0, 16)
+	player.simulate(1.0 / 60.0, Fighter.INPUT_RIGHT | Fighter.INPUT_ATTACK)
 	arena._resolve_attacks()
 	dummy.percent = 48.0
 	await capture("14_training_hit_dummy")

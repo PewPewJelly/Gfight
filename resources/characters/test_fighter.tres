@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CharacterDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/character_def.gd" id="1_character"]
+[ext_resource type="Resource" path="res://resources/movement_settings.tres" id="2_movement"]
+[ext_resource type="Resource" path="res://resources/basic_attack.tres" id="3_basic"]
+[ext_resource type="Resource" path="res://resources/down_attack.tres" id="4_down"]
+[ext_resource type="Resource" path="res://resources/up_attack.tres" id="5_up"]
+
+[resource]
+script = ExtResource("1_character")
+id = &"test_fighter"
+display_name = "테스트 파이터"
+movement = ExtResource("2_movement")
+side_attack = ExtResource("3_basic")
+up_attack = ExtResource("3_basic")
+down_attack = ExtResource("4_down")
+air_up_attack = ExtResource("5_up")
+air_down_attack = ExtResource("4_down")

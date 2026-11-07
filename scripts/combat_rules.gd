@@ -28,7 +28,10 @@ func accumulated_percent(current: float, increase: float) -> float:
 ## fighter could not have recovered. stage spans all platforms; lowest_top is the
 ## top surface of the lowest platform.
 func blast_zone(stage: Rect2, lowest_top: float, screen: Rect2, movement: MovementSettings) -> Rect2:
-	var reach := recovery_reach(movement)
+	return blast_zone_for_reach(stage, lowest_top, screen, recovery_reach(movement))
+
+## blast_zone for an already known recovery reach (e.g. the farthest of several characters).
+func blast_zone_for_reach(stage: Rect2, lowest_top: float, screen: Rect2, reach: Vector2) -> Rect2:
 	var margin := maxf(0.0, blast_safety_margin)
 	var left := stage.position.x - reach.x - margin
 	var right := stage.end.x + reach.x + margin

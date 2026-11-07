@@ -55,6 +55,8 @@ func run() -> void:
 	for point in [Vector2(zone.position.x, 300), Vector2(zone.end.x, 300), Vector2(500, zone.position.y), Vector2(500, zone.end.y)]:
 		check(rules.is_outside(point, zone), "All four exact blast lines")
 	check(not rules.is_outside(Vector2(1441, 300), zone), "Old screen-margin line no longer kills")
+	var wider := rules.blast_zone_for_reach(stage, 540.0, screen, reach * 1.5)
+	check(wider.position.x < zone.position.x and wider.end.x > zone.end.x and wider.end.y > zone.end.y and is_equal_approx(wider.position.y, zone.position.y), "A farther-recovering character pushes the side and bottom lines out")
 	# Simulated recovery: from just inside the side line, two jumps reach the stage edge.
 	var x := 1100.0 + reach.x * 0.95
 	var vy := -movement.jump_speed

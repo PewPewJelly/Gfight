@@ -3,6 +3,7 @@ extends Node2D
 
 signal match_finished(winner_id: int)
 signal snapshot_ready(state: Dictionary)
+signal tick_completed(state: Dictionary)
 var participant_ids: Array[int] = [1, 2]
 ## Participants without a player (training dummy): no input, neutral look.
 var dummy_ids: Array[int] = []
@@ -10,9 +11,14 @@ var standalone: bool = true
 var authoritative: bool = true
 var input_provider: Callable
 var frame: int = 0
+var simulation_seed: int = 1
+var starting_stocks: int = CombatRules.INITIAL_STOCKS
 @export var rules: CombatRules = preload("res://resources/combat_rules.tres")
 @export var attack: AttackData = preload("res://resources/basic_attack.tres")
 @export var movement: MovementSettings = preload("res://resources/movement_settings.tres")
+@export var catalog: ContentCatalog = preload("res://resources/content_catalog.tres")
+## peer id -> character id (MatchSetup.characters). Missing ids use the catalog's first character.
+var character_ids: Dictionary = {}
 var fighters: Array[Fighter] = []
 var platforms: Array[Rect2] = [Rect2(180, 540, 920, 30), Rect2(260, 360, 260, 20), Rect2(760, 360, 260, 20)]
 var screen_bounds := Rect2(0, 0, 1280, 720)
@@ -29,13 +35,12 @@ var hud: Label
 var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
-	rng.randomize()
+	rng.seed = simulation_seed if simulation_seed != 0 else 1
 	var stage := platforms[0]
 	var lowest_top := platforms[0].position.y
 	for surface in platforms:
 		stage = stage.merge(surface)
 		lowest_top = maxf(lowest_top, surface.position.y)
-	blast_zone = rules.blast_zone(stage, lowest_top, screen_bounds, movement)
 	for index in range(platforms.size()):
 		var surface := platforms[index]
 		var body := StaticBody2D.new()
@@ -58,11 +63,13 @@ func _ready() -> void:
 		fighter.is_dummy = dummy_ids.has(fighter.player_id)
 		fighter.tint = UiStyle.DUMMY_COLOR if fighter.is_dummy else UiStyle.slot_color(id + 1)
 		fighter.is_local = fighter.player_id == local_player_id
+		fighter.use_character(_character_for(fighter.player_id))
 		fighter.stock_lost.connect(_on_stock_lost)
 		if id == 1:
-			fighter.controls = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_K]
+			fighter.controls = Fighter.P2_KEYS
 		add_child(fighter)
 		fighters.append(fighter)
+	blast_zone = rules.blast_zone_for_reach(stage, lowest_top, screen_bounds, _farthest_reach())
 	# Fixed camera on the stage center: wider or taller fullscreen windows add margin
 	# around the whole stage instead of cutting it off (window/stretch/aspect = expand).
 	var camera := Camera2D.new()
@@ -94,6 +101,7 @@ func restart() -> void:
 			push_error("No free start position for P%d" % fighter.player_slot)
 			location = Vector2(platforms[0].get_center().x, platforms[0].position.y - Fighter.HALF_SIZE.y)
 		fighter.reset_round(location)
+		fighter.stocks = starting_stocks
 		fighter.tag_emphasis = countdown_left > 0.0
 		fighter.queue_redraw()
 
@@ -105,13 +113,16 @@ func _physics_process(delta: float) -> void:
 	if not authoritative:
 		_update_hud()
 		return
+	simulate_tick(delta)
+
+func simulate_tick(delta: float) -> void:
 	if countdown_left > 0.0:
 		countdown_left = maxf(0.0, countdown_left - delta)
 		if is_zero_approx(countdown_left):
 			_set_tag_emphasis(false)
 	elif not ended:
 		for fighter in fighters:
-			var mask: int = input_provider.call(fighter.player_id) if input_provider.is_valid() else Fighter.read_keyboard(fighter.controls, KEY_S if fighter == fighters[0] else KEY_DOWN)
+			var mask: int = input_provider.call(fighter.player_id) if input_provider.is_valid() else Fighter.read_keyboard(fighter.controls)
 			fighter.simulate(delta, mask)
 		# Resolve all exits before checking victory, including simultaneous final exits.
 		for fighter in fighters:
@@ -129,6 +140,7 @@ func _physics_process(delta: float) -> void:
 			_resolve_attacks()
 	_update_hud()
 	frame += 1
+	tick_completed.emit(snapshot())
 	if frame % 3 == 0:
 		snapshot_ready.emit(snapshot())
 
@@ -139,10 +151,13 @@ func _resolve_attacks() -> void:
 		if not source.attack_requested or source.life_state != Fighter.LifeState.ACTIVE:
 			continue
 		source.attack_requested = false
-		var direction := source.attack_direction()
+		var data := source.active_move
 		var box := source.attack_box()
+		# Movement-only skills have no hit area.
+		if data == null or not box.has_area():
+			continue
+		var direction := source.attack_direction()
 		box.position += source.position
-		var data: AttackData = source.attacks[source.attack_kind]
 		for target in fighters:
 			if target == source or target.life_state != Fighter.LifeState.ACTIVE:
 				continue
@@ -209,6 +224,25 @@ func _resolve_result() -> void:
 		fighter.attack_requested = false
 	match_finished.emit(winner_id)
 
+func _character_for(peer_id: int) -> CharacterDef:
+	var pick: StringName = character_ids.get(peer_id, catalog.default_character())
+	var entry := catalog.character(pick)
+	if entry == null:
+		push_warning("Unknown character id: %s" % pick)
+		entry = catalog.character(catalog.default_character())
+	return entry
+
+## [임시] Characters can move differently, so the blast lines follow the best recovery
+## among the participants: nobody is ringed out while they could still return.
+func _farthest_reach() -> Vector2:
+	if fighters.is_empty():
+		return CombatRules.recovery_reach(movement)
+	var reach := Vector2.ZERO
+	for fighter in fighters:
+		var own := CombatRules.recovery_reach(fighter.movement)
+		reach = Vector2(maxf(reach.x, own.x), maxf(reach.y, own.y))
+	return reach
+
 func _spawn_location(fighter: Fighter) -> Vector2:
 	var candidates: Array[Vector2] = []
 	for surface in platforms:
@@ -230,9 +264,9 @@ func _spawn_location(fighter: Fighter) -> Vector2:
 func _update_hud() -> void:
 	if hud == null:
 		return
-	var instructions := "A/D move · W jump · S drop · J attack (W/J up, S/J down)"
+	var instructions := "A/D move · Space jump · S drop · J attack · K skill (W/S/A/D aim)"
 	if standalone:
-		instructions += " | P2: Arrows + K | R restart"
+		instructions += " | P2: Arrows + , jump + . attack + / skill | R restart"
 	var lines := PackedStringArray([instructions])
 	for fighter in fighters:
 		var status := ""
@@ -255,18 +289,32 @@ func snapshot() -> Dictionary:
 			"life": fighter.life_state, "invulnerability": fighter.invulnerability_left,
 			"respawn": fighter.respawn_left, "hitstun": fighter.hitstun_left,
 			"cooldown": fighter.attack_cooldown, "jumps": fighter.jumps_left,
-			"facing": fighter.facing, "kind": fighter.attack_kind, "visual": fighter.attack_visual,
-			"kills": fighter.kills, "dealt": fighter.dealt_percent, "out": fighter.eliminated_frame})
+			"facing": fighter.facing, "kind": fighter.attack_slot, "skill": fighter.attack_is_skill,
+			"visual": fighter.attack_visual,
+			"kills": fighter.kills, "dealt": fighter.dealt_percent, "out": fighter.eliminated_frame,
+			"jump_down": fighter.jump_was_down, "attack_down": fighter.attack_was_down,
+			"skill_down": fighter.skill_was_down, "skill_cooldowns": fighter.skill_cooldown_state(),
+			"down_down": fighter.down_was_down, "attack_requested": fighter.attack_requested,
+			"last_input": fighter.last_input_mask, "last_attacker": fighter.last_attacker_id,
+			"drop": fighter.drop_left})
 	return {"players": players, "ended": ended, "result": result, "winner": winner_id,
-		"countdown": countdown_left, "frame": frame}
+		"countdown": countdown_left, "frame": frame, "rng": rng.state}
 
 func apply_snapshot(state: Dictionary) -> void:
-	if int(state.get("frame", -1)) < frame:
+	_apply_snapshot(state, false)
+
+## Rollback deliberately restores an older frame, unlike ordinary network snapshots.
+func restore_snapshot(state: Dictionary) -> void:
+	_apply_snapshot(state, true)
+
+func _apply_snapshot(state: Dictionary, allow_older: bool) -> void:
+	if not allow_older and int(state.get("frame", -1)) < frame:
 		return
 	frame = state.frame
 	ended = state.ended
 	result = state.result
 	winner_id = state.winner
+	rng.state = int(state.get("rng", rng.state))
 	var emphasis_changed := (countdown_left > 0.0) != (float(state.countdown) > 0.0)
 	countdown_left = state.countdown
 	for data in state.players:
@@ -285,11 +333,19 @@ func apply_snapshot(state: Dictionary) -> void:
 			fighter.attack_cooldown = data.cooldown
 			fighter.jumps_left = data.jumps
 			fighter.facing = data.facing
-			fighter.attack_kind = data.kind
+			fighter.restore_move_state(data.kind, data.skill, data.get("skill_cooldowns", {}))
 			fighter.attack_visual = data.visual
 			fighter.kills = data.kills
 			fighter.dealt_percent = data.dealt
 			fighter.eliminated_frame = data.out
+			fighter.jump_was_down = bool(data.get("jump_down", false))
+			fighter.attack_was_down = bool(data.get("attack_down", false))
+			fighter.skill_was_down = bool(data.get("skill_down", false))
+			fighter.down_was_down = bool(data.get("down_down", false))
+			fighter.attack_requested = bool(data.get("attack_requested", false))
+			fighter.last_input_mask = int(data.get("last_input", 0))
+			fighter.last_attacker_id = int(data.get("last_attacker", 0))
+			fighter.restore_drop_state(float(data.get("drop", 0.0)))
 			fighter.tag_emphasis = countdown_left > 0.0
 			fighter.visible = fighter.life_state == Fighter.LifeState.ACTIVE
 			fighter.queue_redraw()

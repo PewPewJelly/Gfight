@@ -37,7 +37,7 @@ func _process(delta: float) -> void:
 
 func _physics_process(_delta: float) -> void:
 	if Session.phase == Session.Phase.PLAYING and not Session.local_mode:
-		Session.submit_local_input(Fighter.read_keyboard([KEY_A, KEY_D, KEY_W, KEY_J], KEY_S))
+		Session.submit_local_input(Fighter.read_keyboard(Fighter.P1_KEYS))
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
