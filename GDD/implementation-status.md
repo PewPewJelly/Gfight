@@ -12,7 +12,7 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 - **PLAY → TRAINING(훈련장)**: 혼자 들어가는 대기방. ▶가 항상 켜져 있고, 경기에 회색 허수아비(목숨 3, 입력 없음)가 함께 나온다.
 - 경기: 3초 카운트다운 뒤 WASD/J로 자기 플레이어만 조작한다. 결과 화면에서 Enter로 확인, 남은 전원이 확인하면 같은 대기방으로 돌아간다.
 - 방을 떠나는 길은 대기방 (←) → [나가기]뿐이다. 다른 참가자가 있는 호스트가 나가면 방이 닫히고 참가자는 온라인(임시) 화면 토스트를 본다.
-  온라인 방에서 나오면 온라인(임시) 화면으로, 훈련장에서 나오면 메인 메뉴(PLAY 하위 메뉴가 열린 상태)로 돌아간다.
+  온라인 방에서 나오면 온라인(임시) 화면으로, 훈련장에서 나오면 메인 메뉴로 돌아간다. 메인 메뉴는 돌아올 때마다 처음 상태(시작 애니메이션 재생, PLAY 선택, 하위 메뉴 닫힘)로 열린다.
 - 로컬 2인(`Session.local_game()`)은 테스트용으로 남아 있고 메뉴 버튼은 없다. P1 WASD/J, P2 방향키/K.
 
 ## 화면 구현 (Docs 00·01·02)
@@ -22,8 +22,8 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 
 | 화면 | 파일 | 내용 |
 |---|---|---|
-| 메인 메뉴 | `scenes/ui/main_menu_screen.tscn` | Figma "S1 Main Menu"(2026-11-05) 적용. 1920×1080 디자인을 창에 맞춰 축소. 노란 그라데이션(GradientTexture2D)·점무늬·흰 왼쪽 패널·검은 띠·세로 제목 GFIGHT(그림은 `assets/main_menu/`). 메뉴 PLAY / GUIDEBOOK / SETTINGS를 9도 기울여 표시, 선택 항목은 검은 삼각형+흰 글자+노란 마지막 글자. ↑/↓ 이동, Enter 확인, Esc 게임 종료, 마우스는 올리면 선택·클릭하면 확인. 가이드북·설정은 화면이 없어 선택만 되고 확인은 무시. 오른쪽 아래 명령 안내(Start a Match, Enter/Esc). 왼쪽에 인물 사진(`assets/main_menu/player_photo.webp`, 흰 패널 모양으로 잘림). 흰 패널·검은 띠는 위아래로 늘려 세로로 긴 창에서도 끊기지 않음. 처음 실행 때 한 번 GFIGHT가 위로(0.6초), 사진이 오른쪽에서 왼쪽으로(0.59초) 들어옴. 값은 `main_menu_screen.gd`의 `intro_*` 내보내기 변수. 항목이 선택될 때마다 검은 삼각형이 밑변에서 위로 0.09초 동안 자라나고(`wedge_grow_duration`), 동시에 노란 사선 띠가 글자 안에서만 왼쪽→오른쪽으로 0.15초 동안 훑고 마지막 글자를 노랗게 남김(`resources/shaders/menu_sweep.gdshader`, `sweep_*` 변수). 처음 PLAY는 시작 애니메이션의 제목이 다 올라간 뒤 재생. **PLAY 하위 메뉴**(Figma "S1 Main Menu - Play state", 2026-11-05): PLAY를 확인하면 PLAY 오른쪽 위에 찢긴 구멍 2개(`assets/main_menu/play_hole_*.svg`)로 ONLINE / 온라인(위), TRAINING / 훈련장(아래)이 나타남. 선택 항목은 노란 글자+▶, GUIDEBOOK·SETTINGS는 35%로 흐림, 안내는 "Choose a Mode" / Esc Back. ↑/↓ 이동, Enter 확인, Esc 닫기, 마우스는 올리면 선택·클릭하면 확인, PLAY를 다시 누르면 닫힘. ONLINE → 온라인(임시) 화면, TRAINING → 바로 훈련장 대기방 |
-| 온라인 (임시) | `scenes/ui/online_screen.tscn` | **임시 화면.** 온라인 다음 화면이 아직 없어 넣음. 옛 게임하기(SYS-01) 화면의 온라인 기능을 그대로 옮김: [방 생성], [방 참여] → 방 주소 팝업(형식 오류·접속 실패 5종), 방 닫힘 등 토스트. (←)/Esc는 메인 메뉴(PLAY 하위 메뉴 열림)로. 옛 게임하기 화면(`start_game_screen`)은 2026-11-05 삭제 |
+| 메인 메뉴 | `scenes/ui/main_menu_screen.tscn` | Figma "S1 Main Menu"(2026-11-05) 적용. 1920×1080 디자인을 창에 맞춰 축소. 노란 그라데이션(GradientTexture2D)·점무늬·흰 왼쪽 패널·검은 띠·세로 제목 GFIGHT(그림은 `assets/main_menu/`). 메뉴 PLAY / GUIDEBOOK / SETTINGS를 9도 기울여 표시, 선택 항목은 검은 삼각형+흰 글자+노란 마지막 글자. ↑/↓ 이동, J 또는 Enter 확인, Esc 게임 종료, 마우스는 올리면 선택·클릭하면 확인. 가이드북·설정은 화면이 없어 선택만 되고 확인은 무시. 오른쪽 아래 명령 안내(Start a Match, J·Enter/Esc). 안내 제목은 아래 선의 왼쪽 끝에 맞춘 왼쪽 정렬. 왼쪽에 인물 사진(`assets/main_menu/player_photo.webp`, 흰 패널 모양으로 잘림). 흰 패널·검은 띠는 위아래로 늘려 세로로 긴 창에서도 끊기지 않음. 메인 메뉴가 열릴 때마다(처음 실행, 다른 화면에서 돌아올 때) GFIGHT가 위로(0.6초), 사진이 오른쪽에서 왼쪽으로(0.59초) 들어옴. 값은 `main_menu_screen.gd`의 `intro_*` 내보내기 변수. 항목이 선택될 때마다 검은 삼각형이 밑변에서 위로 0.09초 동안 자라나고(`wedge_grow_duration`), 동시에 노란 사선 띠가 글자 안에서만 왼쪽→오른쪽으로 0.15초 동안 훑고 마지막 글자를 노랗게 남김(`resources/shaders/menu_sweep.gdshader`, `sweep_*` 변수). 처음 PLAY는 시작 애니메이션의 제목이 다 올라간 뒤 재생. **PLAY 하위 메뉴**(Figma "S1 Main Menu - Play state", 2026-11-05): PLAY를 확인하면 PLAY 오른쪽 위에 찢긴 구멍 2개(`assets/main_menu/play_hole_*.svg`)로 ONLINE / 온라인(위), TRAINING / 훈련장(아래)이 나타남. 선택 항목은 노란 글자+▶, GUIDEBOOK·SETTINGS는 35%로 흐림, 안내는 "Choose a Mode" / Esc Back. ↑/↓ 이동, J 또는 Enter 확인, Esc 닫기, 마우스는 올리면 선택·클릭하면 확인, PLAY를 다시 누르면 닫힘. ONLINE → 온라인(임시) 화면, TRAINING → 바로 훈련장 대기방 |
+| 온라인 (임시) | `scenes/ui/online_screen.tscn` | **임시 화면.** 온라인 다음 화면이 아직 없어 넣음. 옛 게임하기(SYS-01) 화면의 온라인 기능을 그대로 옮김: [방 생성], [방 참여] → 방 주소 팝업(형식 오류·접속 실패 5종), 방 닫힘 등 토스트. (←)/Esc는 메인 메뉴(처음 상태)로. 옛 게임하기 화면(`start_game_screen`)은 2026-11-05 삭제 |
 | 대기방 (SYS-02) | `scenes/ui/lobby_screen.tscn` + `scenes/ui/lobby/` | 1920×1080 기울어진 무대(창 크기에 맞춰 축소·가운데), 내 캐릭터·카드·준비/시작 버튼, 탭 [방][캐릭터][설정], 참가자 카드·⋯ 메뉴(프로필·음소거·강제 퇴장), 말풍선 채팅, 방 주소 팝오버·복사, 준비 화살표, 모달, 토스트 |
 | 경기·결과 | `scenes/ui/match_screen.tscn` | 기존 S3 HUD(`match_hud.gd`)와 S4 결과(`result_screen.gd`)를 한 화면에. 허수아비는 회색·"허수아비" 표시 |
 
