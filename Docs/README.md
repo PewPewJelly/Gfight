@@ -38,8 +38,10 @@
 | 문서 | 상태 | 내용 |
 |---|---|---|
 | [ui-ux-direction.md](design/ui-ux-direction.md) | 현행 | 2026-11-09 UI/UX 결정 9개와 화면별 개선 방향. 이후 UI 작업 기준 |
+
 | [ui-ux-scenes-v2.pdf](design/ui-ux-scenes-v2.pdf) | 참고 | 경기 HUD(S3)·결과(S4) 배치는 아직 이 문서가 기준. 색·이름 표기·키·결과 자동 확인은 ui-ux-direction.md가 우선(PDF는 고치지 않음) |
 | [match-flow-scene-ux.md](design/match-flow-scene-ux.md) | 참고 | S1은 메인 메뉴로 대체, S1-1은 폐지. S3·S4 부분만 유효(2026-11-09 결정 반영) |
+
 
 ## archive/ 보관
 
