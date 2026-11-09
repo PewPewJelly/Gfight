@@ -1,3 +1,4 @@
+@tool
 class_name ContentCatalog
 extends Resource
 ## Characters and maps offered in the lobby (Docs/02 §2.5). Adding an entry here adds a

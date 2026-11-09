@@ -1,3 +1,4 @@
+@tool
 class_name CharacterKit
 extends Resource
 ## Character-specific mechanics that data alone cannot express (transformations, combos, charge

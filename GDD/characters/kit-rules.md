@@ -26,6 +26,18 @@
 6. **난수는 `arena.rng`만 쓴다.** `randf()`, `randi()`, 시계(`Time`)는 PC마다 값이 달라진다.
 7. **쓰는 기술과 투사체는 `@export`로 선언한다.** 스냅샷은 리소스를 번호로 저장하는데, `@export`로 닿을 수 있어야 번호가 생긴다. `preload`나 `.new()`로 만든 기술은 시작되지 않는다.
 8. **`draw()`와 `sprite()`는 읽기만 한다.** 연출은 상태에서 그린다. 롤백하면 상태가 되돌아가고 그림도 함께 맞춰진다.
+9. **조절할 값은 슬라이더로 드러낸다.** 숫자는 `@export_range`로 선언하고, 한글 이름은 `const LABELS`에 적는다. 그러면 작업실과 연습실에 슬라이더로 자동 표시된다. 드롭다운 이름은 `const DISPLAY_NAME`이다.
+
+```gdscript
+const DISPLAY_NAME := "충전"
+const LABELS := {
+	"full_seconds": ["완충 시간", "가득 찰 때까지 걸리는 시간"],
+	"charged_move": ["충전 기술", "가득 찼을 때 쓰는 기술"],
+	"mode": ["방식", "충전 방식", ["자동", "수동"]],
+}
+
+@export_range(0.0, 10.0, 0.1, "or_greater", "suffix:초") var full_seconds: float = 3.0
+```
 
 ## 3. 고유 스크립트 (`CharacterKit`)
 
@@ -63,7 +75,13 @@ class_name ChargeKit
 extends CharacterKit
 ## 게이지를 모아 J+K로 강한 기술을 쓴다.
 
-@export var full_seconds: float = 3.0
+const DISPLAY_NAME := "충전"
+const LABELS := {
+	"full_seconds": ["완충 시간", "가득 찰 때까지 걸리는 시간"],
+	"charged_move": ["충전 기술", "가득 찼을 때 쓰는 기술"],
+}
+
+@export_range(0.0, 10.0, 0.1, "or_greater", "suffix:초") var full_seconds: float = 3.0
 @export var charged_move: SkillData
 
 func initial_state() -> Dictionary:

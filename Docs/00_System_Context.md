@@ -31,7 +31,7 @@
 | RPC 채널 | 0 = reliable 이벤트, 1 = 상태 스냅샷, 2 = 입력 | 사람 |
 | 충돌 레이어 | 1 = 월드(땅·플랫폼), 2 = 플레이어 | 사람 |
 | 조정값 | `resources/*.tres` (`MovementSettings`, `CombatRules`, `AttackData`, `SkillData`, `ProjectileData`). 캐릭터별 값은 `resources/characters/<id>.tres` (`CharacterDef`) | 기획 |
-| 폴더 | 기존 씬 `*.tscn` 루트(`main.tscn`, `arena.tscn`), 화면 씬 `scenes/ui/`, 화면 스크립트 `scripts/ui/`, 데이터 클래스 `scripts/data/`, 투사체 동작 `scripts/projectiles/`, 캐릭터 고유 스크립트 `scripts/characters/`, 그 외 스크립트 `scripts/`, 리소스 `resources/`, 그림 파일 `assets/`(SVG·PNG, 하위 `icons/`·`start_game/`·`characters/`·`maps/`), 테스트 `tests/` | 사람 |
+| 폴더 | 기존 씬 `*.tscn` 루트(`main.tscn`, `arena.tscn`), 화면 씬 `scenes/ui/`, 화면 스크립트 `scripts/ui/`, 데이터 클래스 `scripts/data/`, 투사체 동작 `scripts/projectiles/`, 캐릭터 고유 스크립트 `scripts/characters/`, 캐릭터 제작 도구 `addons/character_workshop/`·`scripts/tools/`·`scenes/tools/`, 그 외 스크립트 `scripts/`, 리소스 `resources/`, 그림 파일 `assets/`(SVG·PNG, 하위 `icons/`·`start_game/`·`characters/`·`maps/`), 테스트 `tests/` | 사람 |
 | UI 원칙 | 기본 도형과 글자만. 아이콘·맵 그림은 `assets/`의 SVG, 캐릭터 그림은 PNG(대기방 그림은 SVG도 가능) 파일을 `TextureRect` 또는 `draw_texture_rect()`로 표시한다. 단색 아이콘은 흰색으로 그려져 있으므로 색은 `self_modulate`(또는 draw 색 인자)로 입힌다. 상자·테두리·그림자·줄무늬 같은 UI 도형은 계속 `_draw()`/StyleBox로 그린다. 그림 목록과 출처는 `assets/README.md` | 기획 |
 | 입력 장치 | 게임 조작은 키보드. 메뉴 화면은 마우스 전용(키보드·패드 포커스 이동 없음), 단축키는 Enter/Esc만 | 기획 |
 

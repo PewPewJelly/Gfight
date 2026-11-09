@@ -49,7 +49,7 @@ static func _check_projectile(projectile: ProjectileData, found: Array[String]) 
 ## Kits and behaviors are shared by every fighter or projectile using them, so anything that
 ## changes must live in kit_state or Projectile.vars. A plain member would break rollback.
 static func _check_stateless(resource: Resource, found: Array[String]) -> void:
-	for property: Dictionary in resource.get_property_list():
+	for property in CharacterDef.script_properties(resource):
 		var usage := int(property.usage)
 		if usage & PROPERTY_USAGE_SCRIPT_VARIABLE and not usage & PROPERTY_USAGE_EDITOR:
 			found.append("%s: 변수 '%s'는 @export가 아닙니다. 경기 중 바뀌는 값은 kit_state나 shot.vars에 두어야 합니다." % [_name_of(resource), property.name])

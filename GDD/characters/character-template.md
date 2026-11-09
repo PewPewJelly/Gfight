@@ -1,6 +1,6 @@
 # 캐릭터 기획서 양식
 
-> 새 캐릭터를 만들 때 이 파일을 복사해 `GDD/characters/<id>.md`로 저장하고 채운다. 작성 예시는 [`test_fighter.md`](test_fighter.md).
+> 새 캐릭터는 Godot의 **캐릭터 작업실** 탭에서 만들면 이 양식이 `GDD/characters/<id>.md`로 자동 복사된다([`workshop-guide.md`](workshop-guide.md)). 작성 예시는 [`test_fighter.md`](test_fighter.md).
 >
 > - 표기: 아직 정하지 않은 값은 `??`, 논의가 필요한 항목은 `[검토]`, 기획이 제안하는 기본값은 `[제안]`(Docs/00 §2.1-6). 개발은 `??`·`[검토]`를 확정하지 않고 임시값으로 구현한 뒤 `GDD/implementation-status.md`에 적는다.
 > - 단위: 거리·크기 px, 속도 px/s, 가속도 px/s², 시간 초, 배율 %. 방향은 Godot 좌표(오른쪽 +x, **아래 +y**).
@@ -337,6 +337,7 @@
 
 | 순서 | 작업 | 필요할 때 |
 |---|---|---|
+| 0 | 작업실로 만든 캐릭터는 1~4번이 끝나 있다. 값은 `resources/characters/<id>.tres` 한 파일에 들어 있다 | 작업실을 썼을 때 |
 | 1 | 그림 `assets/characters/<id>.png` 추가. `.import`는 에디터가 만들게 둔다. `assets/README.md` 표에 한 줄 추가 | 항상 |
 | 2 | 기본값과 다른 이동값·공격·스킬·투사체마다 리소스를 만든다(`MovementSettings`, `AttackData`, `SkillData`, `ProjectileData`). 위치는 `resources/characters/<id>/` [제안] | 기본값과 다른 값이 있을 때 |
 | 3 | `resources/characters/<id>.tres`(`CharacterDef`)를 만들고 id·표시 이름·이동값·기본 공격 5칸·스킬 5칸·몸 크기·경기 그림·고유 스크립트를 연결한다. 에디터에서 만들면 `uid`가 자동으로 붙는다 | 항상 |

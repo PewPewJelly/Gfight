@@ -464,12 +464,7 @@ func _slide_off_heads() -> void:
 func attack_box() -> Rect2:
 	if active_move == null:
 		return Rect2()
-	var data := active_move
-	if data.anchor == AttackData.Anchor.ABOVE:
-		return Rect2(Vector2(-data.width / 2.0, -half_size.y - data.reach), Vector2(data.width, data.reach))
-	if data.anchor == AttackData.Anchor.BELOW:
-		return Rect2(Vector2(-data.width / 2.0, half_size.y), Vector2(data.width, data.reach))
-	return Rect2(Vector2(half_size.x if facing > 0 else -half_size.x - data.reach, -data.width / 2.0), Vector2(data.reach, data.width))
+	return active_move.hit_box(half_size, facing)
 
 func attack_direction() -> Vector2:
 	if active_move == null:

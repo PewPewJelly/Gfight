@@ -1,3 +1,4 @@
+@tool
 class_name ProjectileBehavior
 extends Resource
 ## How one projectile type moves and reacts. Subclass it in scripts/projectiles/.

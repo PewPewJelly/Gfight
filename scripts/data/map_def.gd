@@ -1,3 +1,4 @@
+@tool
 class_name MapDef
 extends Resource
 ## One selectable map (catalog entry). Art lives at res://assets/maps/<id>.svg.
