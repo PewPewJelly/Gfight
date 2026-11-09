@@ -3,7 +3,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성일 | 2026-10-27 |
-| 검토 대상 | `Docs/00_System_Context.md` v0.3, `Docs/01-start-game-spec.md` v0.4, `Docs/02-lobby-spec.md` v0.4, `assets/` (README + SVG 17개) |
+| 검토 대상 | `Docs/system/00_System_Context.md` v0.3, `Docs/system/01-start-game-spec.md` v0.4, `Docs/system/02-lobby-spec.md` v0.4, `assets/` (README + SVG 17개) |
 | 대조한 코드 | `main` 브랜치의 `scripts/session.gd`, `scripts/arena.gd`, `scripts/ui_style.gd`, `project.godot`, `AI_GODOT_GUIDE.md` |
 | 기준 | "코딩 AI가 이 문서만 읽고 질문 없이 구현할 수 있는가" |
 | 이 문서의 성격 | 피드백 메모. 기존 명세서는 고치지 않았다 |
@@ -57,7 +57,7 @@
 | 2-4 | 00 §3.2 "이름 입력 화면은 아직 없다. 현재 모든 플레이어 이름은 `"Player"`"는 02(개인 탭 닉네임, `settings.cfg [player] name`)와 맞지 않는다. 시작할 때 `settings.cfg`에서 이름을 읽어 `Session.local_name`에 넣는 단계도 어느 문서에도 없다 | 00 §3.2, 02 §3.9·§4.9, `session.gd` 27·41행 | 00 §3.2를 고치고, "앱 시작 시 `settings.cfg [player] name` → `Session.local_name`"을 00에 적는다 | [확인] |
 | 2-5 | `settings.cfg`의 구조가 흩어져 있다. 코드: `[network] last_address`. 02: `[player] name`, `[audio] bgm/sfx`. 경로(`user://settings.cfg`)와 읽고 쓰는 담당(Session인지 화면인지)이 문서에 없다. 02 §4.9는 화면이 직접 저장하는 것처럼 읽힌다 | `session.gd` 12·43·329행, 02 §2.4·§4.9 | 00에 "설정 파일" 절을 만들어 섹션·키·타입·기본값 표 1개로 정리하고, 저장은 `Session`(또는 별도 함수 1곳)만 한다고 적는다 | [확인] |
 | 2-6 | `RoomState.notice`("P2 님이 들어왔습니다.")를 02가 쓰지 않는다. 기존 대기실에는 있던 알림이 새 대기방에서 사라지는지, 토스트로 보이는지 정해지지 않았다 | 00 §3.3, 02 전체(검색 결과 notice는 이탈 데이터에만 있음), `session.gd` 300행 | 02에 "입장·퇴장 알림 표시 여부"를 한 줄 추가. 안 쓰면 00에서 필드를 지운다 | [확인] |
-| 2-7 | 기존 `Design/match-flow-scene-ux.md`, `ui-ux-scenes-v2.pdf`의 어느 부분이 아직 유효한지 불분명하다. 01은 "S1/S1-1은 대체됨"이라고 적었지만 02는 S2(대기실) 대체 여부를 적지 않았다. S3(경기 HUD)·S4(결과)는 아직 그 문서들만 있다 | 01 §0.2, 02 머리표 | 00 §0에 "기존 문서 상태" 표 추가: S1·S1-1 → SYS-01로 대체, S2 → SYS-02로 대체, S3·S4 → 유효(새 문서 나오기 전까지) | [확인] |
+| 2-7 | 기존 `Docs/design/match-flow-scene-ux.md`, `ui-ux-scenes-v2.pdf`의 어느 부분이 아직 유효한지 불분명하다. 01은 "S1/S1-1은 대체됨"이라고 적었지만 02는 S2(대기실) 대체 여부를 적지 않았다. S3(경기 HUD)·S4(결과)는 아직 그 문서들만 있다 | 01 §0.2, 02 머리표 | 00 §0에 "기존 문서 상태" 표 추가: S1·S1-1 → SYS-01로 대체, S2 → SYS-02로 대체, S3·S4 → 유효(새 문서 나오기 전까지) | [확인] |
 | 2-8 | `RoomState`를 네트워크로 보낼 때의 키 목록이 없다. 00은 "`to_dict()`로 보낸다"까지만 적었고, 02는 방 이름·최대 인원·맵·캐릭터가 `_publish_lobby()`로 간다고만 적었다. 현재 `_lobby_state(players, readiness, notice)` 인자에는 이 값들이 없다 | 00 §3 머리말, 02 §4.2, `session.gd` 317·320행 | 00 §3 각 클래스 표에 "dict 키" 열을 추가하거나, `to_dict()` 결과 예시 1개를 적는다 | [확인] |
 
 ---
@@ -163,7 +163,7 @@
 
 | # | 내용 | 표기 |
 |---|---|---|
-| 5-6 | Mac 저장소에 01이 두 벌 있다. `Design/system/01-start-game-spec.md`(v0.3, 옛것)와 `Docs/01-start-game-spec.md`(v0.4). 코딩 AI가 저장소를 검색하면 옛 것을 읽을 수 있다. 옛 것을 지우거나 맨 위에 "폐기, Docs/ 참고"를 적기를 권한다 | [확인] |
+| 5-6 | Mac 저장소에 01이 두 벌 있다. `Docs/archive/01-start-game-spec-v0.3.md`(v0.3, 옛것)와 `Docs/system/01-start-game-spec.md`(v0.4). 코딩 AI가 저장소를 검색하면 옛 것을 읽을 수 있다. 옛 것을 지우거나 맨 위에 "폐기, Docs/ 참고"를 적기를 권한다 | [확인] |
 | 5-7 | 프로젝트 공유 폴더의 `gfight/Design/system/` 사본 3개도 Mac의 `Docs/` 최신본과 내용이 다르다(파일 해시 비교) | [확인] |
 | 5-8 | Mac의 `DocsPrototype` 브랜치에 문서·에셋 커밋 4개가 있고, 아직 `main`에 합쳐지지 않았다. 코딩 AI를 `main`에서 시작시키면 이 문서들이 없다 | [확인] |
 

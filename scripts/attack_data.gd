@@ -1,7 +1,7 @@
 @tool
 class_name AttackData
 extends HitData
-## One basic attack. Field meanings: GDD/characters/character-template.md §7.1.
+## One basic attack. Field meanings: Docs/gdd/characters/character-template.md §7.1.
 
 ## Where the hit area sits: in front of the body, above the head, or below the feet.
 enum Anchor { FRONT, ABOVE, BELOW }

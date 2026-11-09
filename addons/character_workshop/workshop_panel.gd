@@ -503,4 +503,4 @@ func create_character(id: String, display_name: String, source: CharacterDef, ma
 	character_list.add_item(entry.display_name)
 	character_list.select(index)
 	select_character(index)
-	_set_status("만들었습니다. 기획서는 GDD/characters/%s.md 입니다." % id)
+	_set_status("만들었습니다. 기획서는 Docs/gdd/characters/%s.md 입니다." % id)

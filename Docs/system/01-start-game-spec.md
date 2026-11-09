@@ -10,7 +10,7 @@
 | 기준 해상도 | 1280 × 720 (`project.godot`: `stretch/mode = canvas_items`, `aspect = expand`) |
 | 입력 장치 | 마우스 전용. 키보드 단축키는 Enter(주소 확인), Esc(닫기/뒤로)만. 키보드·게임패드 포커스 이동은 만들지 않는다 |
 | 문서 상태 | v0.4 (2026-10-27). 기획 답변 14건 반영, 아이콘을 SVG 파일로 전환. 결정 필요 사항 없음 |
-| 참조 | `scripts/session.gd`, `scripts/ui_style.gd`, `scripts/main.gd`. 기존 `Design/match-flow-scene-ux.md` S1/S1-1은 이 문서로 대체된다(아래 0.2) |
+| 참조 | `scripts/session.gd`, `scripts/ui_style.gd`, `scripts/main.gd`. 기존 `Docs/design/match-flow-scene-ux.md` S1/S1-1은 이 문서로 대체된다(아래 0.2) |
 
 ### 이 문서 읽는 법 (시스템 명세서 공통 규칙)
 

@@ -30,7 +30,7 @@
 |---|---|---|
 | 엔진 | Godot **4.7.x** 표준판 (팀 검증 버전 4.7.2) | 팀 전원이 같은 마이너 버전을 쓴다 |
 | 언어 | GDScript, 정적 타입 | C#·GDExtension 도입은 사람이 결정한다 |
-| 장르 | 2D 플랫폼 난투. 최대 4인, 3스톡, 넉백 배율 | 규칙은 `GDD/` |
+| 장르 | 2D 플랫폼 난투. 최대 4인, 3스톡, 넉백 배율 | 규칙은 `Docs/gdd/` |
 | 렌더러 | Forward+ (Windows 드라이버 d3d12) | 변경 금지 |
 | 2D 물리 | Godot 기본 2D 물리 | `3d/physics_engine="Jolt Physics"`는 3D 설정이라 2D와 무관하다 |
 | 화면 | 1280×720, stretch `canvas_items` | |
@@ -41,7 +41,7 @@
 | 2D 충돌 레이어 | 1 = 월드(땅·플랫폼), 2 = 플레이어 | 추가하면 이 표와 Project Settings > Layer Names > 2D Physics를 함께 갱신 |
 | 조정값 위치 | `resources/*.tres` (`MovementSettings`, `CombatRules`, `AttackData`) | |
 | 폴더 | 씬 `*.tscn`(루트), 스크립트 `scripts/`, 리소스 `resources/`, 테스트 `tests/` | 구조 변경은 사람 결정 |
-| 기획 문서 | `GDD/*.md` 규칙, `Design/*.md` UI/UX, `GDD/implementation-status.md` 구현 현황·임시값 | |
+| 기획 문서 | `Docs/gdd/*.md` 규칙, `Docs/design/*.md` UI/UX, `Docs/gdd/implementation-status.md` 구현 현황·임시값 | |
 | Godot 실행 파일 | Mac `/Applications/Godot.app/Contents/MacOS/Godot` · Windows: 각자 경로 | §12 명령의 `godot`를 이 경로로 바꾼다 |
 
 ---
@@ -49,7 +49,7 @@
 ## 1. 최우선 규칙
 
 1. **Godot 4.7 문법과 API만 쓴다.** Godot 3 문법(§4.4 표)을 쓰지 않는다. 확실하지 않은 API는 공식 문서에서 확인한 뒤 쓰고, 있을 것 같다고 추측한 메서드나 프로퍼티는 쓰지 않는다.
-2. **기획을 임의로 확정하지 않는다.** GDD의 `??`, `[검토]`, `[미정]` 항목은 임시값으로만 구현한다. 임시값은 Resource에 두고 `GDD/implementation-status.md`에 "임시"로 기록한다.
+2. **기획을 임의로 확정하지 않는다.** GDD의 `??`, `[검토]`, `[미정]` 항목은 임시값으로만 구현한다. 임시값은 Resource에 두고 `Docs/gdd/implementation-status.md`에 "임시"로 기록한다.
 3. **요청 범위만 바꾼다.** 관련 없는 리팩터링, 포맷 정리, 이름 변경, 파일 이동은 하지 않는다. 필요해 보이면 제안만 한다.
 4. **수치를 코드에 박지 않는다.** 속도, 피해, 시간, 크기 같은 조정값은 `@export`나 `resources/*.tres`에 둔다.
 5. **정적 타입을 쓴다.** 변수, 인자, 반환값에 모두 타입을 붙인다.
@@ -66,7 +66,7 @@
 ### 2.1 시작 전
 
 1. 요청에서 범위와 완료 기준을 확인한다. 불분명하면 짧게 질문한다.
-2. 관련 문서를 읽는다: 해당 `GDD/*-handoff.md` → `GDD/implementation-status.md` → UI 작업이면 `Design/*.md`.
+2. 관련 문서를 읽는다: 해당 `Docs/gdd/*-handoff.md` → `Docs/gdd/implementation-status.md` → UI 작업이면 `Docs/design/*.md`.
 3. 관련 코드만 읽는다. 심볼, 시그널, 노드 이름은 `grep`으로 찾아 해당 파일만 연다.
 4. `git status`와 현재 브랜치를 확인한다. 커밋되지 않은 사람의 변경을 덮어쓰지 않는다.
 5. 변경이 크면(파일 3개 이상, 씬 구조 변경, RPC 프로토콜 변경) 계획을 먼저 짧게 제시하고 승인을 받는다.
@@ -80,7 +80,7 @@
 ### 2.3 끝난 뒤
 
 1. §12 검증을 실행한다.
-2. `GDD/implementation-status.md`를 갱신한다(구현 연결, 임시값, 확인 방법).
+2. `Docs/gdd/implementation-status.md`를 갱신한다(구현 연결, 임시값, 확인 방법).
 3. §15 형식으로 보고한다.
 
 ### 2.4 기획 문서 표기 해석
@@ -309,7 +309,7 @@ _init, _enter_tree, _ready, _process, _physics_process, 그 밖의 내장 가상
 
 - `peer_connected`, `peer_disconnected`, `connected_to_server`, `connection_failed`, `server_disconnected` 다섯 시그널을 모두 처리한다.
 - 접속 시도에는 제한 시간(현재 8초)을 둔다.
-- 호스트가 끊기면 메뉴로 돌아가 이유를 표시한다. 클라이언트가 끊기면 그 판에서 탈락 처리한다. 경기 중 새 접속은 거부한다(`Design/match-flow-scene-ux.md` 기준).
+- 호스트가 끊기면 메뉴로 돌아가 이유를 표시한다. 클라이언트가 끊기면 그 판에서 탈락 처리한다. 경기 중 새 접속은 거부한다(`Docs/design/match-flow-scene-ux.md` 기준).
 
 ### 8.4 테스트
 
@@ -482,7 +482,7 @@ godot --headless --path . --check-only --script res://scripts/fighter.gd
 ```
 AI_GODOT_GUIDE.md를 따라 작업해 줘.
 작업: 재스폰 3초 대기 구현
-근거: GDD/basicRule.md "재스폰", Design/match-flow-scene-ux.md S3
+근거: Docs/gdd/basicRule.md "재스폰", Docs/design/match-flow-scene-ux.md S3
 범위: scripts/arena.gd, resources/combat_rules.tres
 완료 기준: 장외 후 3초 뒤 재스폰, combat_test 통과
 미정 항목은 확정하지 말고 임시값으로 표시해 줘.

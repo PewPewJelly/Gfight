@@ -243,7 +243,7 @@ static func read_keyboard(keys: Array[Key]) -> int:
 			mask |= 1 << index
 	return mask & INPUT_ALL
 
-## Move slot for an attack or skill press (GDD/characters/character-template.md §6):
+## Move slot for an attack or skill press (Docs/gdd/characters/character-template.md §6):
 ## up > down > side; no direction is the same as up; only up and down split by ground/air.
 ## Slot names are input directions: an "up" move may hit anywhere its AttackData says.
 static func move_slot(mask: int, airborne: bool) -> CharacterDef.Slot:

@@ -1,6 +1,6 @@
 # 경기 흐름 씬 구성안 (UI/UX)
 
-> 근거: `GDD/match-menu-multiplayer-handoff.md` (보조: `GDD/basicRule.md`, `GDD/defeatNrule.md`)
+> 근거: `Docs/gdd/match-menu-multiplayer-handoff.md` (보조: `Docs/gdd/basicRule.md`, `Docs/gdd/defeatNrule.md`)
 > 기존 시안 `S1_main_menu` / `S2_lobby_placeholder`의 번호 체계(S1, S1-1, S2…)를 이어서 쓴다.
 > 표시: **[확정]** GDD 규칙, **[결정]** 기획자가 이 문서 검토에서 정한 값, **[제안]** 이 문서가 고른 기본값, **[미정]** 아직 정하지 않은 항목.
 

@@ -2,7 +2,7 @@
 class_name HitData
 extends Resource
 ## What a hit does to its target. Shared by moves (AttackData) and projectiles (ProjectileData).
-## Field meanings: GDD/characters/character-template.md §7.1.
+## Field meanings: Docs/gdd/characters/character-template.md §7.1.
 
 ## Names shown by the character tools (TuningForm).
 const LABELS := {

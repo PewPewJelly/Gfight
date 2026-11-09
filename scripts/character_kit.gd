@@ -7,7 +7,7 @@ extends Resource
 ## One instance serves every fighter using the character, so a subclass may only declare @export
 ## tuning values and the moves or projectiles it starts. Anything that changes during a match goes
 ## in fighter.kit_state (plain values only), which FightArena saves for rollback.
-## See GDD/characters/kit-rules.md.
+## See Docs/gdd/characters/kit-rules.md.
 
 ## Starting kit_state; applied again after every ring-out and respawn.
 func initial_state() -> Dictionary:

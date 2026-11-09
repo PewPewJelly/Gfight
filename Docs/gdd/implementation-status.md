@@ -3,8 +3,8 @@
 ## 실행 및 참가
 
 Godot 4.7.2로 `project.godot`을 열고 F5를 누른다. 첫 화면은 메인 메뉴다.
-화면 흐름과 대기방은 `Docs/00_System_Context.md`, `Docs/01-start-game-spec.md`, `Docs/02-lobby-spec.md`(2026-10-27 프로토타입)를 따른다.
-Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scenes-v2.pdf` 동작을 그대로 쓴다.
+화면 흐름과 대기방은 `Docs/system/00_System_Context.md`, `Docs/system/01-start-game-spec.md`, `Docs/system/02-lobby-spec.md`(2026-10-27 프로토타입)를 따른다.
+Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Docs/design/ui-ux-scenes-v2.pdf` 동작을 그대로 쓴다.
 
 - 같은 프로젝트를 두 번 실행한다. 첫 창: **PLAY → ONLINE → 방 생성**. 두 번째 창: **PLAY → ONLINE → 방 참여** →
   주소 `IP:포트`(처음 값은 이 컴퓨터 IP:27840, 이후 마지막 성공 주소) → **확인**(Enter).
@@ -28,7 +28,7 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 | 경기·결과 | `scenes/ui/match_screen.tscn` | 기존 S3 HUD(`match_hud.gd`)와 S4 결과(`result_screen.gd`)를 한 화면에. 허수아비는 회색·"허수아비" 표시 |
 
 - 캐릭터·맵은 `resources/content_catalog.tres`(테스트 파이터 1종, 테스트 맵 1종). 항목을 추가하면 선택칸에 자동으로 나오고, 2종 이상이면 "랜덤"이 붙는다.
-- 캐릭터 하나 = `resources/characters/<id>.tres`(`CharacterDef`: 이동값, 기본 공격 5칸, 스킬 5칸). 기획서는 `GDD/characters/<id>.md`(양식 `character-template.md`).
+- 캐릭터 하나 = `resources/characters/<id>.tres`(`CharacterDef`: 이동값, 기본 공격 5칸, 스킬 5칸). 기획서는 `Docs/gdd/characters/<id>.md`(양식 `character-template.md`).
 - 아이콘·캐릭터·맵 그림은 `assets/`의 SVG.
 - 대기방 화면은 다른 화면과 달리 회색 체계를 쓰고, 애니메이션은 버튼 눌림 3px뿐이다(Docs/02 결정 2·3).
 
@@ -112,7 +112,7 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 ### 공격
 
 캐릭터마다 `resources/characters/<id>.tres`(`CharacterDef`)에 기본 공격 5칸과 스킬 5칸을 둔다.
-슬롯과 입력은 `GDD/characters/character-template.md` §6(2026-11-09 5칸 확정)을 따른다.
+슬롯과 입력은 `Docs/gdd/characters/character-template.md` §6(2026-11-09 5칸 확정)을 따른다.
 
 | 슬롯 | 입력 | 테스트 파이터 (임시) | 범위 길이×폭 | 피해 | 배율 증가 | 기본 발사 속도 | 피격 제한 |
 |---|---|---|---|---|---|---|---|
@@ -148,7 +148,7 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 
 ### 캐릭터 틀 (2026-11-09)
 
-새 캐릭터는 `GDD/characters/character-template.md`를 채워 만들고, 데이터로 안 되는 기믹만 코드로 짠다(`GDD/characters/kit-rules.md`).
+새 캐릭터는 `Docs/gdd/characters/character-template.md`를 채워 만들고, 데이터로 안 되는 기믹만 코드로 짠다(`Docs/gdd/characters/kit-rules.md`).
 
 - 기술(`AttackData`, `SkillData`): 선딜·지속·후딜 프레임, 기술별 다음 기술까지 대기, 사용 중 이동 제한, 포즈 PNG, 투사체 트리거, 투사체 반사. 기본값은 예전과 똑같이 동작한다.
 - 기술이 진행되는 동안은 새 기술을 시작할 수 없고 바라보는 방향이 고정된다. 맞으면 기술은 취소된다.
@@ -160,7 +160,7 @@ Docs가 다루지 않는 경기 HUD·결과 화면은 기존 `Design/ui-ux-scene
 
 ### 캐릭터 제작 툴 (2026-11-09)
 
-사용법은 `GDD/characters/workshop-guide.md`다.
+사용법은 `Docs/gdd/characters/workshop-guide.md`다.
 
 - 작업실: `addons/character_workshop/`. Godot 에디터의 전용 탭이다. 새 캐릭터는 고른 캐릭터를 통째로 복사해 `resources/characters/<id>.tres` 한 파일로 저장한다.
 - 연습실: `scenes/tools/character_lab.tscn`. 개발 전용이고 게임 메뉴에서 들어갈 수 없어 훈련장 치트 금지(Docs/02 결정 8)는 그대로다. 연습실만 불러온 캐릭터 리소스를 직접 고치며(Docs/00 §4.2의 예외), 저장 버튼을 눌러야 파일에 기록된다.

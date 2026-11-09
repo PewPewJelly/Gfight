@@ -11,7 +11,7 @@
 | 문서 상태 | 확정 (현재 구현 기록) |
 | 버전 | v0.3 (2026-11-03) |
 | 작성자 | |
-| 관련 문서 | `GDD/movement-jump-handoff.md`, `GDD/attack-handoff.md`, `GDD/defeatNrule.md`, `GDD/implementation-status.md` |
+| 관련 문서 | `Docs/gdd/movement-jump-handoff.md`, `Docs/gdd/attack-handoff.md`, `Docs/gdd/defeatNrule.md`, `Docs/gdd/implementation-status.md` |
 
 ## 1. 기본 정보 (`CharacterDef`)
 
@@ -83,7 +83,7 @@
 - [x] 대기방 캐릭터 탭에 "테스트 파이터"와 그림이 나온다.
 - [ ] 2종 이상일 때 "랜덤" 칸 — 두 번째 캐릭터를 추가할 때 확인한다.
 - [x] 선택한 캐릭터가 `MatchSetup.characters`에 전달된다.
-- [x] 옆·위·아래 공격 값이 `GDD/implementation-status.md` §공격 표와 같다.
+- [x] 옆·위·아래 공격 값이 `Docs/gdd/implementation-status.md` §공격 표와 같다.
 
 ## 12. [검토]
 

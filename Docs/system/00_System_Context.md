@@ -10,8 +10,8 @@
 |---|---|
 | `00_System_Context.md` (이 문서) | 기술 스택, 코딩 규칙, 전역 데이터, 아키텍처. 모든 프롬프트에 포함 |
 | `NN-<screen>-spec.md` | 화면 하나의 상태, 입출력, 노드 트리, 이벤트, 예외. 해당 화면 작업 때만 포함 |
-| `GDD/*.md` | 게임 규칙(이동, 공격, 스톡 등). 규칙 작업 때만 포함 |
-| `GDD/implementation-status.md` | 실제 구현 현황과 임시값. 코드와 문서가 다르면 여기를 먼저 본다 |
+| `Docs/gdd/*.md` | 게임 규칙(이동, 공격, 스톡 등). 규칙 작업 때만 포함 |
+| `Docs/gdd/implementation-status.md` | 실제 구현 현황과 임시값. 코드와 문서가 다르면 여기를 먼저 본다 |
 
 화면 명세서는 이 문서의 이름(타입, enum, 함수)을 그대로 쓰고, 새로 정의하지 않는다. 바꿔야 하면 이 문서를 먼저 고친다.
 
@@ -46,7 +46,7 @@
 3. 상태는 `enum`으로 표현한다. 문자열 상태 금지(기존 `Session.phase` 문자열은 3.5 참고).
 4. 속도, 시간, 크기, 피해 같은 수치를 코드에 직접 쓰지 않는다. 게임 규칙 값은 `.tres`, 화면 연출 값은 해당 스크립트의 `@export`/`const`.
 5. 화면에 보이는 문구와 색은 `UiStyle`(`scripts/ui_style.gd`) 한 곳에만 둔다. `AI_GODOT_GUIDE.md`의 Theme 리소스 전환은 화면 이전이 모두 끝난 뒤 따로 검토한다.
-6. 기획 문서의 `[미정]`, `[검토]`, `??`는 확정하지 않는다. 임시값으로 구현하고 `GDD/implementation-status.md`에 "임시"로 적는다. `[제안]`은 기본값으로 구현하고 보고에 적는다.
+6. 기획 문서의 `[미정]`, `[검토]`, `??`는 확정하지 않는다. 임시값으로 구현하고 `Docs/gdd/implementation-status.md`에 "임시"로 적는다. `[제안]`은 기본값으로 구현하고 보고에 적는다.
 7. 요청 범위만 바꾼다. 관련 없는 이름 변경, 정리, 파일 이동은 제안만 한다.
 8. `.godot/` 폴더, `.uid` 파일, `uid://`, `unique_id`는 만들거나 고치지 않는다.
 9. 커밋·푸시·브랜치 조작은 사람이 요청할 때만. `main`에 직접 커밋하지 않는다.
@@ -153,7 +153,7 @@ enum Role { NONE, HOST, CLIENT }
 | `dealt_percent` | `float` | 남에게 준 배율 합계, ≥ 0 | `Fighter.dealt_percent` |
 | `present` | `bool` | 결과 화면 시점에 방에 남아 있는지 | `Session.roster.has(id)` |
 
-- 결과 화면은 킬과 준 배율만 보여 준다(`Design/ui-ux-scenes-v2.pdf`).
+- 결과 화면은 킬과 준 배율만 보여 준다(`Docs/design/ui-ux-scenes-v2.pdf`).
 - 훈련 모드 결과 처리는 훈련장 문서에서 정한다.
 
 ### 3.5 `Session.Phase` — 앱 전체의 네트워크 단계
@@ -228,7 +228,7 @@ Session (autoload)                       연결, 방, 준비, 경기 시작·종
 - RPC 인자는 기본형, `Vector2`, `Array`, `Dictionary`, Packed 배열만. 객체 전송 금지.
 - 연결 시그널 5개 모두 처리. 호스트가 끊기면 모든 클라이언트는 게임하기 화면 + 토스트 "호스트와의 연결이 끊어졌습니다."
 - 훈련 모드는 네트워크 연결 없이(`OfflineMultiplayerPeer`) 같은 `Session` 흐름을 쓴다. 그래서 훈련 모드 코드도 "내가 호스트"인 경로로 동작해야 한다.
-- Cloudflare/WebRTC 온라인 경로는 롤백이라 각 PC가 경기를 직접 계산한다. 경기 상태를 새로 추가하면 `FightArena.snapshot()`과 복원에 함께 넣는다. 캐릭터 고유 코드의 규칙은 `GDD/characters/kit-rules.md`다.
+- Cloudflare/WebRTC 온라인 경로는 롤백이라 각 PC가 경기를 직접 계산한다. 경기 상태를 새로 추가하면 `FightArena.snapshot()`과 복원에 함께 넣는다. 캐릭터 고유 코드의 규칙은 `Docs/gdd/characters/kit-rules.md`다.
 
 ---
 

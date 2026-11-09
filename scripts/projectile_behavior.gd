@@ -5,7 +5,7 @@ extends Resource
 ##
 ## One instance serves every projectile of its type, so a subclass may only declare @export
 ## tuning values. Anything that changes per projectile goes in the Projectile (position,
-## velocity, age, vars), which FightArena saves for rollback. See GDD/characters/kit-rules.md.
+## velocity, age, vars), which FightArena saves for rollback. See Docs/gdd/characters/kit-rules.md.
 
 ## Called once when the projectile appears.
 func on_spawn(_shot: Projectile, _arena: FightArena) -> void:

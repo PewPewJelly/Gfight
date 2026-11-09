@@ -4,7 +4,7 @@ extends RefCounted
 ## Creates, copies, and saves character files for the character workshop and the character lab.
 
 const CATALOG_PATH := "res://resources/content_catalog.tres"
-const TEMPLATE_PATH := "res://GDD/characters/character-template.md"
+const TEMPLATE_PATH := "res://Docs/gdd/characters/character-template.md"
 const LAB_SCENE := "res://scenes/tools/character_lab.tscn"
 const LAB_TARGET_FILE := "user://character_lab_target.txt"
 ## The comparison character: the tools never overwrite it, and the tests rely on its values.
@@ -12,7 +12,7 @@ const BASELINE_ID: StringName = &"test_fighter"
 
 ## Tests point these at user:// so they never touch the project.
 static var characters_folder := "res://resources/characters"
-static var design_folder := "res://GDD/characters"
+static var design_folder := "res://Docs/gdd/characters"
 
 static func is_baseline(entry: CharacterDef) -> bool:
 	return entry.id == BASELINE_ID
@@ -83,7 +83,7 @@ static func _has_own_file(resource: Resource) -> bool:
 static func _character_path(id: String) -> String:
 	return "%s/%s.tres" % [characters_folder, id]
 
-## Starts GDD/characters/<id>.md from the template. An existing document is left alone.
+## Starts Docs/gdd/characters/<id>.md from the template. An existing document is left alone.
 static func write_design_document(id: String, display_name: String) -> void:
 	var path := "%s/%s.md" % [design_folder, id]
 	if FileAccess.file_exists(path):
@@ -106,8 +106,8 @@ static func ai_request(entry: CharacterDef) -> String:
 		"GFight 캐릭터 `%s`(%s)의 고유 기믹을 구현해 주세요." % [entry.id, entry.display_name],
 		"",
 		"먼저 읽을 것:",
-		"- GDD/characters/kit-rules.md (반드시 지킬 규칙)",
-		"- GDD/characters/%s.md (기획서)" % entry.id,
+		"- Docs/gdd/characters/kit-rules.md (반드시 지킬 규칙)",
+		"- Docs/gdd/characters/%s.md (기획서)" % entry.id,
 		"- resources/characters/%s.tres (현재 캐릭터 값)" % entry.id,
 		"",
 		"구현 위치: 고유 기믹은 scripts/characters/%s_kit.gd, 새 투사체 동작은 scripts/projectiles/." % entry.id,

@@ -65,7 +65,7 @@ func run() -> void:
 	check(player.grounded() and player.jumps_left == 2, "Landing replenishes both jumps")
 	player.simulate(1.0 / 60.0, 8)
 	check(player.drop_left == 0.0, "Solid bottom ground cannot be dropped through")
-	# Move slots (GDD/characters/character-template.md §6): input rules without physics.
+	# Move slots (Docs/gdd/characters/character-template.md §6): input rules without physics.
 	check(Fighter.move_slot(0, false) == CharacterDef.Slot.UP and Fighter.move_slot(Fighter.INPUT_UP, false) == CharacterDef.Slot.UP, "No direction and up share the up/neutral slot on the ground")
 	check(Fighter.move_slot(0, true) == CharacterDef.Slot.AIR_UP and Fighter.move_slot(Fighter.INPUT_UP, true) == CharacterDef.Slot.AIR_UP, "No direction and up share the air-up slot in the air")
 	check(Fighter.move_slot(Fighter.INPUT_JUMP, false) == CharacterDef.Slot.UP, "The jump key does not aim")

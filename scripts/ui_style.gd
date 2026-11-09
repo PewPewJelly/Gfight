@@ -1,7 +1,7 @@
 class_name UiStyle
 extends RefCounted
 ## Single place for UI colors and copy (Docs/00 §2.1-5). Screen copy follows Docs/01 and
-## Docs/02; match HUD and result copy follow Design/ui-ux-scenes-v2.pdf.
+## Docs/02; match HUD and result copy follow Docs/design/ui-ux-scenes-v2.pdf.
 
 const BACKGROUND := Color("101927")
 const PANEL := Color("223147")
@@ -178,7 +178,7 @@ const STATE_NOT_READY := "준비 안 함"
 const JOINED := "P%d 님이 들어왔습니다."
 const LEFT := "P%d 님이 나갔습니다."
 
-# Match HUD and result (Design/ui-ux-scenes-v2.pdf; no Docs spec yet).
+# Match HUD and result (Docs/design/ui-ux-scenes-v2.pdf; no Docs spec yet).
 const DUMMY := "허수아비"
 const GO := "시작!"
 const ME_TAG := "(나)"

@@ -2,9 +2,9 @@
 class_name CharacterDef
 extends Resource
 ## One selectable character (catalog entry). Art lives at res://assets/characters/<id>.png or
-## .svg, tuning at res://resources/characters/<id>.tres, design at GDD/characters/<id>.md.
+## .svg, tuning at res://resources/characters/<id>.tres, design at Docs/gdd/characters/<id>.md.
 
-## Move slots shared by basic attacks and skills (GDD/characters/character-template.md §6).
+## Move slots shared by basic attacks and skills (Docs/gdd/characters/character-template.md §6).
 ## UP is ground up and neutral merged; SIDE is the same on the ground and in the air.
 enum Slot { SIDE, UP, DOWN, AIR_UP, AIR_DOWN }
 

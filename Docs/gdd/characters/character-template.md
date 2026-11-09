@@ -1,8 +1,8 @@
 # 캐릭터 기획서 양식
 
-> 새 캐릭터는 Godot의 **캐릭터 작업실** 탭에서 만들면 이 양식이 `GDD/characters/<id>.md`로 자동 복사된다([`workshop-guide.md`](workshop-guide.md)). 작성 예시는 [`test_fighter.md`](test_fighter.md).
+> 새 캐릭터는 Godot의 **캐릭터 작업실** 탭에서 만들면 이 양식이 `Docs/gdd/characters/<id>.md`로 자동 복사된다([`workshop-guide.md`](workshop-guide.md)). 작성 예시는 [`test_fighter.md`](test_fighter.md).
 >
-> - 표기: 아직 정하지 않은 값은 `??`, 논의가 필요한 항목은 `[검토]`, 기획이 제안하는 기본값은 `[제안]`(Docs/00 §2.1-6). 개발은 `??`·`[검토]`를 확정하지 않고 임시값으로 구현한 뒤 `GDD/implementation-status.md`에 적는다.
+> - 표기: 아직 정하지 않은 값은 `??`, 논의가 필요한 항목은 `[검토]`, 기획이 제안하는 기본값은 `[제안]`(Docs/00 §2.1-6). 개발은 `??`·`[검토]`를 확정하지 않고 임시값으로 구현한 뒤 `Docs/gdd/implementation-status.md`에 적는다.
 > - 단위: 거리·크기 px, 속도 px/s, 가속도 px/s², 시간 초, 배율 %. 방향은 Godot 좌표(오른쪽 +x, **아래 +y**).
 > - "기본값"은 테스트 파이터(현재 유일한 캐릭터)의 값이다. 기본값과 같으면 "이 캐릭터" 칸에 `=`만 적는다.
 
@@ -15,7 +15,7 @@
 | 문서 상태 | 초안 / 검토 중 / 확정 |
 | 버전 | v0.1 (YYYY-MM-DD) |
 | 작성자 | |
-| 관련 문서 | `GDD/movement-jump-handoff.md`, `GDD/attack-handoff.md`, `GDD/defeatNrule.md`, `GDD/implementation-status.md` |
+| 관련 문서 | `Docs/gdd/movement-jump-handoff.md`, `Docs/gdd/attack-handoff.md`, `Docs/gdd/defeatNrule.md`, `Docs/gdd/implementation-status.md` |
 
 ### 반영 표시
 
@@ -124,11 +124,11 @@
 - 점프 키와 버튼을 같은 순간에 누르면 점프가 먼저 나가 공중 기술이 된다.
 - 공중 위·공중 아래 칸이 비어 있으면 땅의 위·중립, 아래 기술을 쓴다.
 - 코드는 이 체계로 구현되어 있다(`CharacterDef.Slot`, `Fighter.move_slot`).
-- 슬롯 체계는 5칸으로 확정했다(2026-11-09). J+K 동시 입력 같은 특수 입력은 슬롯을 늘리지 않고 캐릭터 고유 스크립트에서 처리한다(`GDD/characters/kit-rules.md`).
+- 슬롯 체계는 5칸으로 확정했다(2026-11-09). J+K 동시 입력 같은 특수 입력은 슬롯을 늘리지 않고 캐릭터 고유 스크립트에서 처리한다(`Docs/gdd/characters/kit-rules.md`).
 
 ## 7. 기본 공격 (`AttackData`)
 
-공통 규칙 (`GDD/attack-handoff.md`, `GDD/implementation-status.md` §공격):
+공통 규칙 (`Docs/gdd/attack-handoff.md`, `Docs/gdd/implementation-status.md` §공격):
 
 - 판정: 7.4의 선딜 뒤 지속 프레임 동안 사각형 범위로 판정한다. 기본값은 시작 프레임 1회 판정이다. 공격 1회당 상대마다 한 번만 맞는다.
 - 발사 속도 = 기본 발사 속도 × (1 + 맞은 뒤 배율 ÷ 100). 예: 배율 0%인 상대가 배율 증가 12%인 공격에 맞으면 발사 속도 × 1.12.
@@ -284,13 +284,13 @@
 | 유도 | `HomingShot` | 회전력 |
 | 부메랑 | `BoomerangShot` | 돌아오는 시점, 회수 거리 |
 | 몸에 붙어 휘두르기 | `FollowOwnerShot` | 반지름, 시작·끝 각도 |
-| 새로운 동작 | `scripts/projectiles/` | 개발 또는 AI 작업 (`GDD/characters/kit-rules.md`) |
+| 새로운 동작 | `scripts/projectiles/` | 개발 또는 AI 작업 (`Docs/gdd/characters/kit-rules.md`) |
 
 - 경기장 전체의 동시 투사체는 40개까지다(`combat_rules.tres`의 `max_projectiles`). [제안]
 
 ### 8.6 고유 스크립트 (선택)
 
-데이터로 표현할 수 없는 기믹(변신, 콤보, 게이지, 동시 입력 등)은 `scripts/characters/<id>_kit.gd`에 만들고 `CharacterDef.kit`에 연결한다. 규칙은 `GDD/characters/kit-rules.md`다.
+데이터로 표현할 수 없는 기믹(변신, 콤보, 게이지, 동시 입력 등)은 `scripts/characters/<id>_kit.gd`에 만들고 `CharacterDef.kit`에 연결한다. 규칙은 `Docs/gdd/characters/kit-rules.md`다.
 
 | 기믹 이름 | 입력·조건 | 효과 | 조절할 수치 |
 |---|---|---|---|
@@ -343,5 +343,5 @@
 | 3 | `resources/characters/<id>.tres`(`CharacterDef`)를 만들고 id·표시 이름·이동값·기본 공격 5칸·스킬 5칸·몸 크기·경기 그림·고유 스크립트를 연결한다. 에디터에서 만들면 `uid`가 자동으로 붙는다 | 항상 |
 | 4 | `resources/content_catalog.tres`의 `characters`에 3번 리소스를 추가 | 항상 |
 | 5 | "신규" 항목은 관련 GDD 규칙 문서를 먼저 확정한 뒤 구현 | "신규" 항목이 있을 때 |
-| 6 | 임시값·가정을 `GDD/implementation-status.md`에 기록 | `??`·`[검토]`가 남아 있을 때 |
+| 6 | 임시값·가정을 `Docs/gdd/implementation-status.md`에 기록 | `??`·`[검토]`가 남아 있을 때 |
 | 7 | `godot --headless --path . --import` 후 headless 테스트 실행, 11장 확인 기준 점검 | 항상 |
