@@ -8,9 +8,16 @@
 | 클래스 | `class_name StartGameScreen extends Control` |
 | 엔진 | Godot 4.7, GDScript |
 | 기준 해상도 | 1280 × 720 (`project.godot`: `stretch/mode = canvas_items`, `aspect = expand`) |
-| 입력 장치 | 마우스 전용. 키보드 단축키는 Enter(주소 확인), Esc(닫기/뒤로)만. 키보드·게임패드 포커스 이동은 만들지 않는다 |
-| 문서 상태 | v0.4 (2026-10-27). 기획 답변 14건 반영, 아이콘을 SVG 파일로 전환. 결정 필요 사항 없음 |
+| 입력 장치 | 키보드만으로 모든 조작이 가능해야 한다. 확인 J·Enter, 뒤로 Esc, 방향키로 포커스 이동 [제안]. 마우스는 보조 (2026-11-09 결정 3) |
+| 문서 상태 | v0.5 (2026-11-09). UI/UX 결정 1·3·4 반영: 방 주소 입력 참가 폐지, 키보드 조작, 메인 메뉴 스타일 (`Docs/design/ui-ux-direction.md`). v0.4 (2026-10-27): 기획 답변 14건 반영, 아이콘을 SVG 파일로 전환 |
 | 참조 | `scripts/session.gd`, `scripts/ui_style.gd`, `scripts/main.gd`. 기존 `Docs/design/match-flow-scene-ux.md` S1/S1-1은 이 문서로 대체된다(아래 0.2) |
+
+> **2026-11-09 UI/UX 결정 반영** (근거: `Docs/design/ui-ux-direction.md`)
+>
+> - **결정 4 — 방 주소 입력 참가 폐지.** 참가는 온라인 공개 방 목록에서만 한다. 초대 코드, 비공개·친구 전용 방도 만들지 않는다. 그래서 이 문서의 '방 주소 입력' 창 관련 부분(상태 `JOIN_*`, 2.3·2.4, 3.1 `%JoinPopup`, 3.3의 JOIN 행, 3.4의 팝업 행, 4.3 '방 참여 창', 4.4 [방 참여], 5.1의 주소 관련 행, 5.2)은 **구현하지 않는다**. 각 부분에 '폐지' 표시를 달았다. 공개 방 화면은 `ui-ux-direction.md` §2.2와 `03-multi_spec.md`를 따른다.
+> - **결정 1 — 메인 메뉴 스타일.** 배경·색·글꼴은 메인 메뉴와 같다(3.1·3.2 수정).
+> - **결정 3 — 키보드 조작.** 마우스 전용 규칙은 폐지했다(머리 표, 3.1 `focus_mode`, 4.3 수정).
+> - 참고: 지금 코드에는 이 화면(`start_game_screen`)이 없다. 같은 역할을 메인 메뉴의 PLAY 하위 메뉴(ONLINE / TRAINING)와 온라인 공개 방 화면(`online_screen`)이 한다.
 
 ### 이 문서 읽는 법 (시스템 명세서 공통 규칙)
 
@@ -30,7 +37,7 @@
 - 진입: `<메인 화면>`(SYS-00, [게임하기][가이드북][설정])에서 [게임하기]를 누르면 들어온다. 대기방에서 나오거나 방이 닫혀도 이 화면으로 돌아온다.
 - 구성: 좌상단 `[<] 게임하기` (뒤로가기 버튼, 그 오른쪽에 현재 위치 글자), 화면 좌측 '실전', 우측 '훈련장'.
 - 실전에 마우스가 닿으면 아이콘 오른쪽에 [방 참여], [방 생성] 버튼이 나온다(위에서부터 이 순서).
-- [방 생성] → `<대기방>`(온라인, 호스트). [방 참여] → '방 주소 입력' 플로팅 창 → 성공 시 `<대기방>`(온라인, 참가자).
+- [방 생성] → `<대기방>`(온라인, 호스트). [방 참여] → 온라인 공개 방 목록에서 방 선택 → 성공 시 `<대기방>`(온라인, 참가자). 옛 '방 주소 입력' 플로팅 창은 폐지 (2026-11-09 결정 4).
 - 훈련장 → 즉시 `<대기방>`(훈련, 혼자, 초대 불가). 대기방 설정과 경기 중 치트 모드는 별도 문서에서 다룬다.
 - 뒤로가기 → `<메인 화면>`.
 
@@ -40,7 +47,7 @@
 |---|---|
 | S1 메인 메뉴: [게임 참여][게임 생성][게임 종료] | SYS-00 메인 화면: [게임하기][가이드북][설정] |
 | (없음) | SYS-01 게임하기: 실전(방 참여/방 생성), 훈련장 |
-| S1-1 게임 참여 팝업 "게임 참여 / 주소 / [참여]" | SYS-01 안의 플로팅 창 "방 주소 입력 / [확인]" |
+| S1-1 게임 참여 팝업 "게임 참여 / 주소 / [참여]" | ~~SYS-01 안의 플로팅 창 "방 주소 입력 / [확인]"~~ → 폐지. 공개 방 목록에서 참가 (2026-11-09 결정 4) |
 | 대기실에서 나가면 S1 | 대기방에서 나가면 SYS-01 |
 | `Session.local_game()` 같은 키보드 2인(테스트용) | 훈련장은 혼자 쓰는 새 모드 `Session.start_training()` (4.2) |
 
@@ -71,6 +78,8 @@ enum ScreenState {
 
 enum JoinError { NONE, BAD_FORMAT, NOT_FOUND, ROOM_FULL, IN_PROGRESS, VERSION_MISMATCH }
 ```
+
+> **폐지 (2026-11-09 결정 4):** `JOIN_EDITING`·`JOIN_INVALID`·`JOIN_CONNECTING`·`JOIN_FAILED`와 `JoinError`, 아래 전이표의 JOIN 행은 방 주소 입력 창용이라 쓰지 않는다. 방이 가득 참·경기 진행 중·연결 실패 같은 참가 오류는 공개 방 화면에서 처리한다.
 
 ### 1.1 상태 전이표
 
@@ -111,12 +120,12 @@ enum JoinError { NONE, BAD_FORMAT, NOT_FOUND, ROOM_FULL, IN_PROGRESS, VERSION_MI
 | `route` | `Route` (`enum Route { MAIN_MENU, LOBBY }`) | 다음 화면 |
 | `room_mode` | `RoomMode` (`enum RoomMode { NONE, ONLINE, TRAINING }`) | `route == LOBBY`일 때 ONLINE/TRAINING, 그 외 NONE |
 | `role` | `Role` (`enum Role { NONE, HOST, CLIENT }`) | 온라인 대기방이면 HOST/CLIENT, 훈련은 HOST, 그 외 NONE |
-| `room_address` | `String` | 온라인 대기방일 때 `Session.room_address` (`"IP:포트"`). 그 외 `""` |
+| `room_address` | `String` | 온라인 대기방일 때 공개 방 id(`OnlineClient.room_id`). 화면에 표시하지 않는다 (2026-11-09 결정 4). 그 외 `""` |
 
 - 반환 방법: `exit_requested.emit(result)`. 실제 연결 객체는 반환하지 않는다. 연결은 `Session`이 쥔다.
 - `Route`, `RoomMode`, `Role` enum은 다른 화면도 쓰므로 공용 스크립트 `res://scripts/ui/screen_types.gd`(`class_name ScreenTypes`)에 둔다.
 
-### 2.3 주소 입력 창의 기본값
+### 2.3 주소 입력 창의 기본값 — 폐지 (2026-11-09 결정 4)
 
 | 변수 | 타입 | 값 |
 |---|---|---|
@@ -124,7 +133,7 @@ enum JoinError { NONE, BAD_FORMAT, NOT_FOUND, ROOM_FULL, IN_PROGRESS, VERSION_MI
 
 - `Session.local_ipv4()`는 기존 함수. 같은 네트워크 IPv4(192.168./10./172.)를 우선 반환하고, 없으면 `127.0.0.1`.
 
-### 2.4 주소 검증 결과 (기존 `Session.parse_address(text: String) -> Dictionary` 재사용)
+### 2.4 주소 검증 결과 (기존 `Session.parse_address(text: String) -> Dictionary` 재사용) — 폐지 (2026-11-09 결정 4)
 
 | 키 | 타입 | 설명 |
 |---|---|---|
@@ -147,27 +156,27 @@ enum JoinError { NONE, BAD_FORMAT, NOT_FOUND, ROOM_FULL, IN_PROGRESS, VERSION_MI
 
 ```
 StartGameScreen (Control, Full Rect)                         start_game_screen.gd
-├─ Background (ColorRect, Full Rect, color = UiStyle.BACKGROUND #101927, mouse_filter = IGNORE)
+├─ Background (TextureRect, Full Rect, 메인 메뉴 배경 그라데이션 #E39A16 → #F2BC45 → #FCE6AE, mouse_filter = IGNORE)   ← 2026-11-09 결정 1 (옛 값: 남색 #101927)
 ├─ TopBar (MarginContainer, Top Wide, margin 24px 전방향)
 │  └─ TopBarRow (HBoxContainer, separation 12)
 │     ├─ %BackButton (Button, 44×44, text "<")
 │     └─ %LocationLabel (Label, text = UiStyle.PLAY_TITLE "게임하기", font 26, 세로 중앙)
 ├─ ModeRow (HBoxContainer, Center, separation 160)
 │  ├─ %RealArea (Control, 560×360, mouse_filter = PASS)       ← 호버 판정 영역
-│  │  ├─ %RealButton (Button, flat, 280×320, focus_mode = NONE)
+│  │  ├─ %RealButton (Button, flat, 280×320)
 │  │  │  └─ RealColumn (VBoxContainer, separation 8, alignment CENTER, mouse_filter = IGNORE)
 │  │  │     ├─ %RealIcon (TextureRect, 240×240, mouse_filter = IGNORE, texture = res://assets/start_game/sword.svg)
 │  │  │     └─ RealLabel (Label, text = UiStyle.MODE_REAL "실전", font 32, CENTER)
 │  │  └─ %RealSubMenu (VBoxContainer, RealButton 오른쪽 16px, 세로 중앙, separation 12)
-│  │     ├─ %JoinRoomButton (Button, 200×44, focus_mode = NONE, text = UiStyle.JOIN_ROOM "방 참여")
-│  │     └─ %CreateRoomButton (Button, 200×44, focus_mode = NONE, text = UiStyle.CREATE_ROOM "방 생성")
-│  └─ %TrainingButton (Button, flat, 280×320, focus_mode = NONE)
+│  │     ├─ %JoinRoomButton (Button, 200×44, text = UiStyle.JOIN_ROOM "방 참여")
+│  │     └─ %CreateRoomButton (Button, 200×44, text = UiStyle.CREATE_ROOM "방 생성")
+│  └─ %TrainingButton (Button, flat, 280×320)
 │     └─ TrainingColumn (VBoxContainer, separation 8, alignment CENTER, mouse_filter = IGNORE)
 │        ├─ %TrainingIcon (TextureRect, 240×240, mouse_filter = IGNORE, texture = res://assets/start_game/target.svg)
 │        └─ TrainingLabel (Label, text = UiStyle.MODE_TRAINING "훈련장", font 32, CENTER)
 ├─ %Toast (PanelContainer, Center Bottom, 하단에서 110px 위, 기본 숨김)
 │  └─ %ToastLabel (Label, font 18)
-├─ %JoinPopup (Control, Full Rect, mouse_filter = STOP, 기본 숨김)
+├─ %JoinPopup (Control, Full Rect, mouse_filter = STOP, 기본 숨김)   ← 이하 폐지 (2026-11-09 결정 4)
 │  ├─ Dimmer (ColorRect, Full Rect, color = UiStyle.DIMMER 검정 65%)
 │  └─ JoinPanel (PanelContainer, Center, 최소 480×0, 모서리 14px)
 │     └─ JoinColumn (VBoxContainer, separation 14)
@@ -178,17 +187,18 @@ StartGameScreen (Control, Full Rect)                         start_game_screen.g
 │        └─ JoinButtons (HBoxContainer, alignment END, separation 12)
 │           ├─ %JoinCancelButton (Button, 110×44, text = UiStyle.CANCEL "취소")
 │           └─ %JoinConfirmButton (Button, 110×44, text = UiStyle.CONFIRM "확인")
-└─ %Fade (ColorRect, Full Rect, color = BACKGROUND, alpha 0, mouse_filter = IGNORE)
+└─ %Fade (ColorRect, Full Rect, color = UiStyle.MAIN_INK, alpha 0, mouse_filter = IGNORE)
 ```
 
 - 폭 검산(1280px 기준): RealArea 560 + 간격 160 + TrainingButton 280 = 1000px, 좌우 여백 각 140px. RealArea 안: RealButton 280 + 16 + RealSubMenu 200 = 496px.
 - 하위 버튼이 RealArea 안에 있어서, 마우스가 아이콘에서 버튼으로 옮겨 가도 영역을 벗어나지 않는다.
+- 버튼의 `focus_mode = NONE`은 없앴다(키보드 포커스 필요, 2026-11-09 결정 3). 글꼴은 메인 메뉴와 같은 Barlow Condensed(영어·숫자) + Noto Sans KR(한글) (결정 1).
 - 새 `UiStyle` 상수: `PLAY_TITLE`, `MODE_REAL`, `MODE_TRAINING`, `JOIN_ROOM`, `CREATE_ROOM`, `JOIN_ADDRESS_TITLE`, `CONFIRM`. 재사용: `CANCEL`, `CONNECTING`, `CREATING`, 오류 문구 5종, `ROOM_CLOSED`, `HOST_LOST`.
 - 폐기할 기존 상수: `JOIN`("게임 참여"), `CREATE`("게임 생성"), `JOIN_CONFIRM`("참여"), `ADDRESS`("주소"). 메인 화면의 `QUIT`는 SYS-00에서 정한다.
 
 ### 3.2 아이콘 그림 (SVG 파일)
 
-두 아이콘은 `res://assets/start_game/sword.svg`, `target.svg`를 `TextureRect`로 표시한다(`stretch_mode = KEEP_ASPECT_CENTERED`). 파일은 240×240, 중심 (120, 120), 흰색으로 그려져 있다. 색은 `self_modulate`로 입힌다: 기본 `UiStyle.TEXT #e8eef7`, 실전 영역이 펼쳐진 동안 RealIcon만 `UiStyle.ACCENT #4f7cff`. 과녁 중심점의 빨강은 파일에 들어 있고 `self_modulate`와 곱해진다.
+두 아이콘은 `res://assets/start_game/sword.svg`, `target.svg`를 `TextureRect`로 표시한다(`stretch_mode = KEEP_ASPECT_CENTERED`). 파일은 240×240, 중심 (120, 120), 흰색으로 그려져 있다. 색은 `self_modulate`로 입힌다: 기본 `UiStyle.MAIN_INK #141416`, 실전 영역이 펼쳐진 동안 RealIcon만 `UiStyle.MAIN_SELECTED_TEXT`(흰색)이고 아이콘 뒤에 `MAIN_INK` 판을 둔다 [제안] (2026-11-09 결정 1. 옛 값: TEXT #e8eef7 / ACCENT #4f7cff). 과녁 중심점의 빨강은 파일에 들어 있고 `self_modulate`와 곱해진다.
 
 아래 표는 SVG에 그려진 모양이다. 그림을 고칠 때 기준으로 쓴다.
 
@@ -214,13 +224,13 @@ StartGameScreen (Control, Full Rect)                         start_game_screen.g
 
 | 상태 | RealSubMenu | JoinPopup | 버튼 활성 | 기타 |
 |---|---|---|---|---|
-| IDLE | 숨김 (`visible = false`) | 숨김 | 전부 활성 | 아이콘 색 TEXT |
-| REAL_EXPANDED | 표시 | 숨김 | 전부 활성 | RealIcon 색 ACCENT |
+| IDLE | 숨김 (`visible = false`) | 숨김 | 전부 활성 | 아이콘 색 MAIN_INK |
+| REAL_EXPANDED | 표시 | 숨김 | 전부 활성 | RealIcon 흰색 + 검정 판 [제안] |
 | CREATING | 표시 | 숨김 | 화면 내 모든 버튼 `disabled = true` | CreateRoomButton 텍스트 `UiStyle.CREATING` "방을 만드는 중…" |
-| JOIN_EDITING | 숨김 | 표시 | 팝업 버튼 활성 | AddressField 글자색 `TEXT #e8eef7`, JoinErrorLabel `""` |
-| JOIN_INVALID | 숨김 | 표시 | 팝업 버튼 활성 | AddressField 글자색 `ERROR #ff5a5a`, JoinErrorLabel = `UiStyle.BAD_ADDRESS` |
-| JOIN_CONNECTING | 숨김 | 표시 | JoinConfirmButton `disabled`, JoinCancelButton 활성 | AddressField `editable = false`, Confirm 텍스트 `UiStyle.CONNECTING` "접속 중…", JoinErrorLabel `""` |
-| JOIN_FAILED | 숨김 | 표시 | 팝업 버튼 활성 | AddressField 글자색 `ERROR #ff5a5a`, JoinErrorLabel = 오류별 문구 (5.2 표) |
+| ~~JOIN_EDITING~~ (폐지) | 숨김 | 표시 | 팝업 버튼 활성 | AddressField 글자색 `TEXT #e8eef7`, JoinErrorLabel `""` |
+| ~~JOIN_INVALID~~ (폐지) | 숨김 | 표시 | 팝업 버튼 활성 | AddressField 글자색 `ERROR #ff5a5a`, JoinErrorLabel = `UiStyle.BAD_ADDRESS` |
+| ~~JOIN_CONNECTING~~ (폐지) | 숨김 | 표시 | JoinConfirmButton `disabled`, JoinCancelButton 활성 | AddressField `editable = false`, Confirm 텍스트 `UiStyle.CONNECTING` "접속 중…", JoinErrorLabel `""` |
+| ~~JOIN_FAILED~~ (폐지) | 숨김 | 표시 | 팝업 버튼 활성 | AddressField 글자색 `ERROR #ff5a5a`, JoinErrorLabel = 오류별 문구 (5.2 표) |
 | LEAVING | 유지 | 유지 | 전부 `disabled` | Fade alpha 1 → 0 |
 
 ### 3.4 연출 수치
@@ -231,9 +241,9 @@ StartGameScreen (Control, Full Rect)                         start_game_screen.g
 | 하위 버튼 퇴장 | 영역 이탈 후 0.15초 대기, 이후 즉시 `visible = false` |
 | 화면 전환 페이드 | 0.2초 |
 | 토스트 표시 시간 | 3.0초 |
-| 팝업 열기/닫기 | 애니메이션 없음, 즉시 표시/숨김 |
-| 팝업 열림 직후 | AddressField에 포커스, 미리 채운 주소 전체가 선택(파란 반전)된 상태. 바로 타이핑하면 기존 값이 지워지고 새로 입력됨 |
-| 주소 칸 클릭 | 포커스가 없던 상태에서 클릭하면 전체 선택(`select_all_on_focus`). 이미 포커스가 있으면 클릭 위치에 커서만 이동 |
+| ~~팝업 열기/닫기~~ (폐지) | 애니메이션 없음, 즉시 표시/숨김 |
+| ~~팝업 열림 직후~~ (폐지) | AddressField에 포커스, 미리 채운 주소 전체가 선택(파란 반전)된 상태. 바로 타이핑하면 기존 값이 지워지고 새로 입력됨 |
+| ~~주소 칸 클릭~~ (폐지) | 포커스가 없던 상태에서 클릭하면 전체 선택(`select_all_on_focus`). 이미 포커스가 있으면 클릭 위치에 커서만 이동 |
 
 ---
 
@@ -285,7 +295,7 @@ var _collapse_ticket: int = 0     # 호버 닫기 예약 취소용 세대 번호
   - 조건: `state in [IDLE, REAL_EXPANDED]`. 그 외 무시
   - `_exit_to(Route.MAIN_MENU)`
 - `func _unhandled_key_input(event: InputEvent) -> void`
-  - 눌림(`pressed and not echo`) + Esc만 처리
+  - 눌림(`pressed and not echo`)만 처리. J·Enter는 포커스가 있는 버튼 확인, Esc는 아래, 방향키는 포커스 이동 [제안] (2026-11-09 결정 3)
   - 팝업 열림(`JOIN_*`) → `_on_join_cancel_pressed()`
   - `IDLE/REAL_EXPANDED` → `_on_back_pressed()`
   - 처리 후 `get_viewport().set_input_as_handled()`
@@ -304,6 +314,7 @@ var _collapse_ticket: int = 0     # 호버 닫기 예약 취소용 세대 번호
   - `state == REAL_EXPANDED`일 때만 `_set_state(IDLE)`
 - `func _on_real_button_pressed() -> void`
   - `state == IDLE` → `_set_state(REAL_EXPANDED)` (마우스 이동 이벤트를 못 받은 경우 대비)
+- 키보드 [제안]: RealButton·JoinRoomButton·CreateRoomButton에 포커스가 오면 `_on_real_area_mouse_entered()`와 같게 펼치고, 셋 다 포커스를 잃으면 `_on_real_area_mouse_exited()`와 같게 접는다 (결정 3)
 
 **방 생성**
 
@@ -321,7 +332,7 @@ var _collapse_ticket: int = 0     # 호버 닫기 예약 취소용 세대 번호
   - `Session.start_training()`
   - `_exit_to(Route.LOBBY, RoomMode.TRAINING, Role.HOST)`
 
-**방 참여 창**
+**방 참여 창 — 폐지 (2026-11-09 결정 4).** 아래 함수는 만들지 않는다. [방 참여]는 공개 방 목록으로 간다.
 
 - `func _on_join_room_pressed() -> void`
   - 조건: `state == REAL_EXPANDED`
@@ -364,7 +375,9 @@ var _collapse_ticket: int = 0     # 호버 닫기 예약 취소용 세대 번호
 [방 생성]  REAL_EXPANDED ─pressed→ CREATING ─host_game OK→ LEAVING → exit(LOBBY, ONLINE, HOST)
                                         └─host_game 실패→ IDLE + 토스트 "방을 생성할 수 없습니다."
 
-[방 참여]  REAL_EXPANDED ─pressed→ JOIN_EDITING(마지막 주소 또는 내 주소, 전체 선택) ─확인/Enter→ parse_address
+[방 참여]  REAL_EXPANDED ─pressed→ 공개 방 목록 → 방 선택 → 대기방 (2026-11-09 결정 4)
+           (아래 주소 입력 흐름은 폐지)
+           ~~REAL_EXPANDED ─pressed→ JOIN_EDITING(마지막 주소 또는 내 주소, 전체 선택) ─확인/Enter→ parse_address~~
              parse 실패 → JOIN_INVALID (빨간 글씨 + "주소 형식이 올바르지 않습니다.")
              parse 성공 → JOIN_CONNECTING ─Session.phase=="lobby"→ LEAVING → exit(LOBBY, ONLINE, CLIENT)
                                          └─Session.join_error→ JOIN_FAILED (빨간 글씨 + 오류 문구)
@@ -380,6 +393,8 @@ var _collapse_ticket: int = 0     # 호버 닫기 예약 취소용 세대 번호
 ## 5. 예외 처리 매트릭스
 
 ### 5.1 상황별
+
+> **폐지 (2026-11-09 결정 4):** 주소 형식 오류, 방을 찾을 수 없음, 접속 중 호스트 끊김, 오류 후 다시 입력, 빈칸으로 확인, 앞뒤 공백, 입력 길이 초과, 줄바꿈 포함 붙여넣기, 내 주소를 못 구함, [방 참여] 연타, [확인]/Enter 연타, 접속 중 취소, 취소와 성공이 같은 프레임, 팝업 바깥 클릭, 팝업 열린 상태 뒤로가기, 주소 저장 실패 행은 주소 입력 창용이라 쓰지 않는다. 방이 가득 참·경기 진행 중·버전 다름은 공개 방 화면에서 같은 문구로 보여 준다.
 
 | 상황 | 조건 | UI 처리 | 로직 처리 |
 |---|---|---|---|
@@ -411,7 +426,7 @@ var _collapse_ticket: int = 0     # 호버 닫기 예약 취소용 세대 번호
 | 주소 저장 실패 | `ConfigFile.save` != OK | 표시 없음 | `push_warning`만, 접속은 정상 진행 |
 | 창 크기 변경 | 전체화면 ↔ 창 (F11, Alt+Enter) | 앵커 기준 재배치 | `stretch/mode = canvas_items` |
 
-### 5.2 접속 오류 문구 매핑 (모두 빨간 글씨 + 입력 칸 아래 표시)
+### 5.2 접속 오류 문구 매핑 (모두 빨간 글씨 + 입력 칸 아래 표시) — 폐지 (2026-11-09 결정 4)
 
 | `JoinError` | `Session.join_error` 값 (`UiStyle`) | 표시 문구 |
 |---|---|---|
@@ -431,15 +446,16 @@ var _collapse_ticket: int = 0     # 호버 닫기 예약 취소용 세대 번호
 |---|---|---|
 | 1 | 메인 화면 구성 | [게임하기][가이드북][설정]. [게임하기] → 이 화면 |
 | 2 | 뒤로가기와 '게임하기' 글자 위치 | `[<] 게임하기` (글자는 버튼 오른쪽) |
-| 3 | 방 코드 vs IP 주소 | IP 주소 입력 유지, 제목 '방 주소 입력' |
+| 3 | 방 코드 vs IP 주소 | ~~IP 주소 입력 유지, 제목 '방 주소 입력'~~ → 2026-11-09: 방 코드·주소 입력 모두 폐지. 공개 방 목록으로만 참가. 비공개·친구 전용 방 없음 |
 | 4 | 훈련장 동작 | 즉시 혼자만 있는 대기방(초대 불가). 경기 중 치트 모드는 별도 문서 |
-| 5 | 키보드·게임패드 조작 | 이번에는 만들지 않음(Esc/Enter 단축키만) |
-| 6 | 주소 입력 칸 기본값 | 마지막 접속 주소, 없으면 내 컴퓨터 주소. 클릭 시 전체 선택 |
+| 5 | 키보드·게임패드 조작 | ~~이번에는 만들지 않음(Esc/Enter 단축키만)~~ → 2026-11-09: 키보드만으로 모든 흐름 진행(확인 J·Enter, 뒤로 Esc) |
+| 6 | 주소 입력 칸 기본값 | ~~마지막 접속 주소, 없으면 내 컴퓨터 주소. 클릭 시 전체 선택~~ → 폐지 (2026-11-09, 주소 입력 창 없음) |
 | 7 | 빨간 글씨 범위 | 형식 오류 + 네트워크 오류 4종 모두 |
 | 8 | 아이콘 | `assets/start_game/`의 SVG 파일 (2026-10-27 변경. 처음 결정은 코드로 선·원을 그림) |
 | 9 | 대기방에서 돌아오는 화면 | 게임하기 화면 |
 | 10 | 화면 전환 구조 | 화면별 `.tscn` + `ScreenRouter` (0.3) |
 | 11 | 버튼 문구 | 초안 문구로 통일 ([방 참여][방 생성][확인][취소]) |
 | 12 | `[제안]` 수치 | 승인, 그대로 사용 |
-| 13 | 마지막 접속 주소 vs 내 주소 우선순위 | 마지막 접속 주소 우선 |
-| 14 | 빈칸으로 [확인] | 형식 오류(빨간 글씨) |
+| 13 | 마지막 접속 주소 vs 내 주소 우선순위 | ~~마지막 접속 주소 우선~~ → 폐지 (2026-11-09) |
+| 14 | 빈칸으로 [확인] | ~~형식 오류(빨간 글씨)~~ → 폐지 (2026-11-09) |
+| 15 | 배경·색·글꼴 (2026-11-09) | 메인 메뉴 스타일을 그대로 따른다 |

@@ -33,7 +33,9 @@
 | 조정값 | `resources/*.tres` (`MovementSettings`, `CombatRules`, `AttackData`, `SkillData`, `ProjectileData`). 캐릭터별 값은 `resources/characters/<id>.tres` (`CharacterDef`) | 기획 |
 | 폴더 | 기존 씬 `*.tscn` 루트(`main.tscn`, `arena.tscn`), 화면 씬 `scenes/ui/`, 화면 스크립트 `scripts/ui/`, 데이터 클래스 `scripts/data/`, 투사체 동작 `scripts/projectiles/`, 캐릭터 고유 스크립트 `scripts/characters/`, 캐릭터 제작 도구 `addons/character_workshop/`·`scripts/tools/`·`scenes/tools/`, 그 외 스크립트 `scripts/`, 리소스 `resources/`, 그림 파일 `assets/`(SVG·PNG, 하위 `icons/`·`start_game/`·`characters/`·`maps/`), 테스트 `tests/` | 사람 |
 | UI 원칙 | 기본 도형과 글자만. 아이콘·맵 그림은 `assets/`의 SVG, 캐릭터 그림은 PNG(대기방 그림은 SVG도 가능) 파일을 `TextureRect` 또는 `draw_texture_rect()`로 표시한다. 단색 아이콘은 흰색으로 그려져 있으므로 색은 `self_modulate`(또는 draw 색 인자)로 입힌다. 상자·테두리·그림자·줄무늬 같은 UI 도형은 계속 `_draw()`/StyleBox로 그린다. 그림 목록과 출처는 `assets/README.md` | 기획 |
-| 입력 장치 | 게임 조작은 키보드. 메뉴 화면은 마우스 전용(키보드·패드 포커스 이동 없음), 단축키는 Enter/Esc만 | 기획 |
+| 시각 체계 | 모든 화면이 메인 메뉴 스타일을 그대로 따른다. 색 `UiStyle.MAIN_*`(검정 #141416, 노랑 #eba823, 갈색 #3a2a08, 종이 #fff4d6, 흰색)와 배경 그라데이션 #E39A16 → #F2BC45 → #FCE6AE, 글꼴 Barlow Condensed(영어·숫자) + Noto Sans KR(한글), 기울기 9°. 애니메이션 금지는 대기방에만 적용(02 결정 2). 근거 `Docs/design/ui-ux-direction.md` §1.1 | 기획 (2026-11-09 결정 1·2) |
+| 입력 장치 | 게임 조작은 키보드. 메뉴 화면도 키보드만으로 모든 흐름을 진행할 수 있어야 한다: 확인 J·Enter(글자 입력칸 안에서는 Enter만), 뒤로 Esc, 대기방 채팅 T. 마우스는 보조 | 기획 (2026-11-09 결정 3) |
+| 플레이어 표기 | 닉네임 우선. 모든 화면에서 "닉네임 · P번호"와 슬롯 색 띠를 함께 쓴다(예: "민수 · P2", "민수 승리!", "민수 님이 들어왔습니다.") | 기획 (2026-11-09 결정 5) |
 
 ---
 
@@ -125,12 +127,12 @@ enum Role { NONE, HOST, CLIENT }
 |---|---|---|---|
 | `mode` | `ScreenTypes.RoomMode` | ONLINE / TRAINING | (없음. SYS-01에서 `Session.training_mode` 추가) |
 | `phase` | `Session.Phase` | 3.5 참고 | `Session.phase: String` |
-| `address` | `String` | 온라인 `"IP:포트"`, 훈련 `""` | `Session.room_address` |
+| `address` | `String` | 온라인 공개 방 id(`OnlineClient.room_id`). 화면에 표시하지 않는다(2026-11-09 결정 4: 방 코드·주소 공유 없음). 훈련 `""` | `Session.room_address` |
 | `players` | `Array[PlayerData]` | 1~4명, slot 순 | `Session.roster` + `ready_states` |
 | `max_players` | `int` | 4 | `Session.MAX_PLAYERS` |
 | `stocks` | `int` | 3 | `CombatRules.INITIAL_STOCKS` |
 | `generation` | `int` | 경기를 시작할 때마다 1 증가. 오래된 RPC를 버리는 데 씀 | `Session.generation` |
-| `notice` | `String` | 대기방 알림 한 줄("P2 님이 들어왔습니다.") | `Session.message` |
+| `notice` | `String` | 대기방 알림 한 줄("민수 님이 들어왔습니다." — 닉네임 우선, 2026-11-09 결정 5) | `Session.message` |
 
 - 이 정보는 호스트만 바꾼다. 클라이언트는 호스트가 보낸 값으로 덮어쓰기만 한다.
 
@@ -249,6 +251,7 @@ Session (autoload)                       연결, 방, 준비, 경기 시작·종
 | 1 | 새 파일 폴더 | 화면 `scenes/ui/` + `scripts/ui/`, 데이터 클래스 `scripts/data/` |
 | 2 | 색·글꼴 위치 | `UiStyle` 유지. Theme 전환은 화면 이전 후 별도 검토 |
 | 3 | 데이터 구조 정리 시점 | 화면 이전 전에 한 번에 정리 (별도 작업 1건) |
+| 4 | 시각 체계·입력·표기 (2026-11-09) | 메인 메뉴 스타일, 키보드만으로 조작, 닉네임 우선 표기, 방 코드·주소 공유 없음. 자세한 것은 `Docs/design/ui-ux-direction.md` |
 
 ## 작업 순서 (권장)
 

@@ -11,7 +11,7 @@
 | 문서 | 상태 | 내용 |
 |---|---|---|
 | [00_System_Context.md](system/00_System_Context.md) | 현행 | 전역 규칙: 기술 스택, 코딩 규칙, 데이터 구조, 아키텍처 |
-| [01-start-game-spec.md](system/01-start-game-spec.md) | 현행 | SYS-01 게임하기 화면 |
+| [01-start-game-spec.md](system/01-start-game-spec.md) | 현행 | SYS-01 게임하기 화면. 방 주소 입력 참가는 폐지(2026-11-09). 지금 코드에서는 메인 메뉴 PLAY 하위 메뉴와 온라인 공개 방 화면이 이 역할을 함 |
 | [02-lobby-spec.md](system/02-lobby-spec.md) | 현행 | SYS-02 대기방 |
 | [03-multi_spec.md](system/03-multi_spec.md) | 현행 | 온라인 멀티플레이 구조 계획 |
 | [system-review-feedback.md](system/system-review-feedback.md) | 참고 | 00~02 문서 검토 의견 (2026-10-27) |
@@ -38,8 +38,8 @@
 | 문서 | 상태 | 내용 |
 |---|---|---|
 | [ui-ux-direction.md](design/ui-ux-direction.md) | 현행 | 2026-11-09 UI/UX 결정 9개와 화면별 개선 방향. 이후 UI 작업 기준 |
-| [ui-ux-scenes-v2.pdf](design/ui-ux-scenes-v2.pdf) | 참고 | 경기 HUD(S3)·결과(S4)는 아직 이 문서가 기준 |
-| [match-flow-scene-ux.md](design/match-flow-scene-ux.md) | 참고 | S1·S1-1은 system/01로 대체됨. S3·S4 부분만 유효 |
+| [ui-ux-scenes-v2.pdf](design/ui-ux-scenes-v2.pdf) | 참고 | 경기 HUD(S3)·결과(S4) 배치는 아직 이 문서가 기준. 색·이름 표기·키·결과 자동 확인은 ui-ux-direction.md가 우선(PDF는 고치지 않음) |
+| [match-flow-scene-ux.md](design/match-flow-scene-ux.md) | 참고 | S1은 메인 메뉴로 대체, S1-1은 폐지. S3·S4 부분만 유효(2026-11-09 결정 반영) |
 
 ## archive/ 보관
 
