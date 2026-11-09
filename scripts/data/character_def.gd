@@ -29,6 +29,44 @@ enum Slot { SIDE, UP, DOWN, AIR_UP, AIR_DOWN }
 @export var air_up_skill: SkillData
 @export var air_down_skill: SkillData
 
+@export_group("Body and look")
+## Width and height in px: collision, the area that gets hit, and where melee hit areas start.
+@export var body_size: Vector2 = Vector2(36, 52)
+## PNG drawn during matches, its bottom edge at the feet. Empty draws the slot-colored box.
+@export var match_sprite: Texture2D
+## Drawn height in px. 0 matches the body height.
+@export var sprite_height: float = 0.0
+## Shifts the art from the feet (x follows facing, up is negative y).
+@export var sprite_offset: Vector2 = Vector2.ZERO
+## Turn on when the PNG itself looks to the left.
+@export var sprite_faces_left: bool = false
+
+@export_group("Kit")
+## Character-specific mechanics. Empty means the character is made of data only.
+@export var kit: CharacterKit
+
+## Every script-backed resource reachable from this character, in declaration order.
+## Snapshots refer to moves and projectiles by their position in lists built from this.
+func reachable_resources() -> Array[Resource]:
+	var found: Array[Resource] = []
+	_collect_resources(self, found)
+	return found
+
+static func _collect_resources(value: Variant, found: Array[Resource]) -> void:
+	if value is Array:
+		for item: Variant in value:
+			_collect_resources(item, found)
+		return
+	if not value is Resource:
+		return
+	var resource: Resource = value
+	if resource.get_script() == null or found.has(resource):
+		return
+	found.append(resource)
+	for property: Dictionary in resource.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			_collect_resources(resource.get(property.name), found)
+
 func attack(slot: Slot) -> AttackData:
 	match slot:
 		Slot.SIDE:

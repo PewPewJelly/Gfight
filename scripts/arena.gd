@@ -14,12 +14,21 @@ var frame: int = 0
 var simulation_seed: int = 1
 var starting_stocks: int = CombatRules.INITIAL_STOCKS
 @export var rules: CombatRules = preload("res://resources/combat_rules.tres")
-@export var attack: AttackData = preload("res://resources/basic_attack.tres")
 @export var movement: MovementSettings = preload("res://resources/movement_settings.tres")
-@export var catalog: ContentCatalog = preload("res://resources/content_catalog.tres")
+## Empty loads the project's catalog in _ready. Not a preload: characters refer back to
+## this script through their kits and projectile behaviors, which would be a load cycle.
+@export var catalog: ContentCatalog
 ## peer id -> character id (MatchSetup.characters). Missing ids use the catalog's first character.
 var character_ids: Dictionary = {}
 var fighters: Array[Fighter] = []
+## Live projectiles in launch order. Plain state, not nodes: rollback replays many ticks in one
+## frame, which physics areas cannot follow, so hits use the same rectangle tests as moves.
+var projectiles: Array[Projectile] = []
+## Snapshots refer to projectile types by index here (see index_projectile_types).
+var projectile_types: Array[ProjectileData] = []
+var next_projectile_id: int = 0
+var projectile_view: ProjectileView
+var _default_behavior := ProjectileBehavior.new()
 var platforms: Array[Rect2] = [Rect2(180, 540, 920, 30), Rect2(260, 360, 260, 20), Rect2(760, 360, 260, 20)]
 var screen_bounds := Rect2(0, 0, 1280, 720)
 ## Crossing any edge of this rectangle is an instant ring-out (see CombatRules.blast_zone).
@@ -35,6 +44,8 @@ var hud: Label
 var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	if catalog == null:
+		catalog = load("res://resources/content_catalog.tres")
 	rng.seed = simulation_seed if simulation_seed != 0 else 1
 	var stage := platforms[0]
 	var lowest_top := platforms[0].position.y
@@ -64,11 +75,16 @@ func _ready() -> void:
 		fighter.tint = UiStyle.DUMMY_COLOR if fighter.is_dummy else UiStyle.slot_color(id + 1)
 		fighter.is_local = fighter.player_id == local_player_id
 		fighter.use_character(_character_for(fighter.player_id))
+		fighter.arena = self
 		fighter.stock_lost.connect(_on_stock_lost)
 		if id == 1:
 			fighter.controls = Fighter.P2_KEYS
 		add_child(fighter)
 		fighters.append(fighter)
+	index_projectile_types()
+	projectile_view = ProjectileView.new()
+	projectile_view.arena = self
+	add_child(projectile_view)
 	blast_zone = rules.blast_zone_for_reach(stage, lowest_top, screen_bounds, _farthest_reach())
 	# Fixed camera on the stage center: wider or taller fullscreen windows add margin
 	# around the whole stage instead of cutting it off (window/stretch/aspect = expand).
@@ -91,6 +107,9 @@ func restart() -> void:
 	result = ""
 	winner_id = 0
 	countdown_left = 0.0 if standalone else maxf(0.0, rules.start_countdown)
+	projectiles.clear()
+	next_projectile_id = 0
+	projectile_view.queue_redraw()
 	# Park everyone off-stage so each random start only avoids fighters already placed.
 	for fighter in fighters:
 		fighter.position = Vector2(-10000, -10000)
@@ -99,7 +118,7 @@ func restart() -> void:
 		var location := _spawn_location(fighter)
 		if location == Vector2.INF:
 			push_error("No free start position for P%d" % fighter.player_slot)
-			location = Vector2(platforms[0].get_center().x, platforms[0].position.y - Fighter.HALF_SIZE.y)
+			location = Vector2(platforms[0].get_center().x, platforms[0].position.y - fighter.half_size.y)
 		fighter.reset_round(location)
 		fighter.stocks = starting_stocks
 		fighter.tag_emphasis = countdown_left > 0.0
@@ -137,6 +156,7 @@ func simulate_tick(delta: float) -> void:
 						var location := _spawn_location(fighter)
 						if location != Vector2.INF:
 							fighter.respawn(location)
+			_step_projectiles(delta)
 			_resolve_attacks()
 	_update_hud()
 	frame += 1
@@ -158,11 +178,14 @@ func _resolve_attacks() -> void:
 			continue
 		var direction := source.attack_direction()
 		box.position += source.position
+		if data.reflects_projectiles:
+			_reflect_projectiles(source, box)
 		for target in fighters:
-			if target == source or target.life_state != Fighter.LifeState.ACTIVE:
+			if target == source or target.life_state != Fighter.LifeState.ACTIVE or (source.hit_mask & target.slot_bit()) != 0:
 				continue
-			if box.intersects(Rect2(target.position - Fighter.HALF_SIZE, Fighter.HALF_SIZE * 2.0)):
+			if box.intersects(_body_box(target)):
 				hits.append({"source": source, "target": target, "direction": direction, "attack": data})
+	_collect_projectile_hits(hits)
 	for hit in hits:
 		var target: Fighter = hit.target
 		var before := target.percent
@@ -170,6 +193,154 @@ func _resolve_attacks() -> void:
 			var source: Fighter = hit.source
 			source.dealt_percent += target.percent - before
 			target.last_attacker_id = source.player_id
+			_after_hit(hit, source, target)
+	_remove_dead_projectiles()
+	projectile_view.queue_redraw()
+
+func _body_box(fighter: Fighter) -> Rect2:
+	return Rect2(fighter.position - fighter.half_size, fighter.half_size * 2.0)
+
+func _after_hit(hit: Dictionary, source: Fighter, target: Fighter) -> void:
+	if hit.has("shot"):
+		var shot: Projectile = hit.shot
+		shot.hit_mask |= target.slot_bit()
+		_behavior_of(shot).on_hit(shot, self, target)
+		if shot.data.after_hit == ProjectileData.AfterHit.VANISH:
+			shot.alive = false
+	else:
+		source.hit_mask |= target.slot_bit()
+	if source.kit != null:
+		source.kit.on_hit_dealt(source, target, hit.attack)
+
+## Lists the projectile types of everyone in the match. Participant order is the same on every
+## peer, so the same index means the same type everywhere.
+func index_projectile_types() -> void:
+	projectile_types.clear()
+	for fighter in fighters:
+		for resource in fighter.character.reachable_resources():
+			if resource is ProjectileData and not projectile_types.has(resource):
+				projectile_types.append(resource)
+
+## Launches what a move's trigger asks for, fanned out across spread_degrees.
+func launch(spawn: ProjectileSpawn, shooter: Fighter) -> void:
+	var at := shooter.position + Vector2(spawn.offset.x * shooter.facing, spawn.offset.y)
+	var count := maxi(1, spawn.count)
+	for index in range(count):
+		var spread := 0.0 if count == 1 else spawn.spread_degrees * (float(index) / float(count - 1) - 0.5)
+		var angle := deg_to_rad(spawn.angle_degrees + spread)
+		var launch_velocity := Vector2(cos(angle) * shooter.facing, sin(angle)) * spawn.projectile.speed
+		spawn_projectile(spawn.projectile, shooter, at, launch_velocity)
+
+## Adds one projectile; kits and behaviors can call this directly. Returns null when a limit
+## blocks it. `data` must be an @export reachable from a character in the match.
+func spawn_projectile(data: ProjectileData, shooter: Fighter, at: Vector2, launch_velocity: Vector2) -> Projectile:
+	var type_index := projectile_types.find(data)
+	if type_index < 0:
+		push_error("%s launched a projectile it does not export" % shooter.character.id)
+		return null
+	if projectiles.size() >= rules.max_projectiles:
+		return null
+	if data.max_active > 0 and _active_count(type_index, shooter.player_id) >= data.max_active:
+		return null
+	var shot := Projectile.new()
+	shot.id = next_projectile_id
+	next_projectile_id += 1
+	shot.owner_id = shooter.player_id
+	shot.type_index = type_index
+	shot.data = data
+	shot.position = at
+	shot.velocity = launch_velocity
+	shot.facing = shooter.facing
+	projectiles.append(shot)
+	_behavior_of(shot).on_spawn(shot, self)
+	return shot
+
+func projectiles_of(shooter: Fighter) -> Array[Projectile]:
+	var owned: Array[Projectile] = []
+	for shot in projectiles:
+		if shot.owner_id == shooter.player_id:
+			owned.append(shot)
+	return owned
+
+func fighter_by_id(id: int) -> Fighter:
+	for fighter in fighters:
+		if fighter.player_id == id:
+			return fighter
+	return null
+
+## Closest fighter still in play, excluding one player; ties go to the earlier participant.
+func nearest_fighter(from: Vector2, exclude_id: int) -> Fighter:
+	var nearest: Fighter = null
+	var nearest_distance := INF
+	for fighter in fighters:
+		if fighter.player_id == exclude_id or fighter.life_state != Fighter.LifeState.ACTIVE:
+			continue
+		var distance := from.distance_squared_to(fighter.position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = fighter
+	return nearest
+
+func _behavior_of(shot: Projectile) -> ProjectileBehavior:
+	return shot.data.behavior if shot.data.behavior != null else _default_behavior
+
+func _active_count(type_index: int, owner_id: int) -> int:
+	var count := 0
+	for shot in projectiles:
+		if shot.alive and shot.type_index == type_index and shot.owner_id == owner_id:
+			count += 1
+	return count
+
+func _step_projectiles(delta: float) -> void:
+	# Projectiles launched during this loop (splits) start moving next tick.
+	for index in range(projectiles.size()):
+		var shot := projectiles[index]
+		var behavior := _behavior_of(shot)
+		behavior.step(shot, self, delta)
+		shot.age += 1
+		# Same rounding as fighters, so CPU differences do not build up across peers.
+		shot.position = Vector2(snappedf(shot.position.x, 0.001), snappedf(shot.position.y, 0.001))
+		shot.velocity = Vector2(snappedf(shot.velocity.x, 0.001), snappedf(shot.velocity.y, 0.001))
+		if shot.alive and shot.data.hits_platforms:
+			for surface in platforms:
+				if shot.box().intersects(surface):
+					behavior.on_platform(shot, self, surface)
+					break
+		if shot.alive and shot.data.lifetime_frames > 0 and shot.age >= shot.data.lifetime_frames:
+			behavior.on_expire(shot, self)
+			shot.alive = false
+		if shot.alive and rules.is_outside(shot.position, blast_zone):
+			shot.alive = false
+
+func _reflect_projectiles(reflector: Fighter, box: Rect2) -> void:
+	for shot in projectiles:
+		if shot.alive and shot.owner_id != reflector.player_id and box.intersects(shot.box()):
+			shot.owner_id = reflector.player_id
+			shot.velocity = -shot.velocity
+			shot.facing = -shot.facing
+			shot.hit_mask = 0
+			shot.age = 0
+
+func _collect_projectile_hits(hits: Array[Dictionary]) -> void:
+	for shot in projectiles:
+		var source := fighter_by_id(shot.owner_id)
+		if not shot.alive or source == null:
+			continue
+		var side := signf(shot.velocity.x) if not is_zero_approx(shot.velocity.x) else shot.facing
+		var direction := Vector2(shot.data.launch_direction.x * side, shot.data.launch_direction.y).normalized()
+		for target in fighters:
+			if target == source or target.life_state != Fighter.LifeState.ACTIVE or target.invulnerability_left > 0.0 or (shot.hit_mask & target.slot_bit()) != 0:
+				continue
+			if shot.box().intersects(_body_box(target)):
+				hits.append({"source": source, "target": target, "direction": direction, "attack": shot.data, "shot": shot})
+				# A shot that vanishes on hit only reaches the first fighter in its way.
+				if shot.data.after_hit == ProjectileData.AfterHit.VANISH:
+					break
+
+func _remove_dead_projectiles() -> void:
+	for index in range(projectiles.size() - 1, -1, -1):
+		if not projectiles[index].alive:
+			projectiles.remove_at(index)
 
 ## Credits the kill to the last attacker and records elimination order for ranks.
 func _on_stock_lost(fighter: Fighter) -> void:
@@ -246,14 +417,15 @@ func _farthest_reach() -> Vector2:
 func _spawn_location(fighter: Fighter) -> Vector2:
 	var candidates: Array[Vector2] = []
 	for surface in platforms:
-		var x := surface.position.x + Fighter.HALF_SIZE.x + 8.0
-		while x <= surface.end.x - Fighter.HALF_SIZE.x - 8.0:
-			var candidate := Vector2(x, surface.position.y - Fighter.HALF_SIZE.y)
+		var x := surface.position.x + fighter.half_size.x + 8.0
+		while x <= surface.end.x - fighter.half_size.x - 8.0:
+			var candidate := Vector2(x, surface.position.y - fighter.half_size.y)
 			var occupied := false
 			for other in fighters:
 				if other != fighter and other.life_state == Fighter.LifeState.ACTIVE:
 					var separation := (other.position - candidate).abs()
-					if separation.x < Fighter.HALF_SIZE.x * 2.0 + 8.0 and separation.y < Fighter.HALF_SIZE.y * 2.0 + 8.0:
+					var clearance := other.half_size + fighter.half_size + Vector2(8.0, 8.0)
+					if separation.x < clearance.x and separation.y < clearance.y:
 						occupied = true
 			if not occupied:
 				candidates.append(candidate)
@@ -290,15 +462,21 @@ func snapshot() -> Dictionary:
 			"respawn": fighter.respawn_left, "hitstun": fighter.hitstun_left,
 			"cooldown": fighter.attack_cooldown, "jumps": fighter.jumps_left,
 			"facing": fighter.facing, "kind": fighter.attack_slot, "skill": fighter.attack_is_skill,
-			"visual": fighter.attack_visual,
+			"visual": fighter.attack_visual, "flash": fighter.attack_flash_left,
+			"phase": fighter.move_phase, "move_frame": fighter.move_frame, "hit_mask": fighter.hit_mask,
+			"move": fighter.moves.find(fighter.active_move), "kit": fighter.kit_state.duplicate(true),
 			"kills": fighter.kills, "dealt": fighter.dealt_percent, "out": fighter.eliminated_frame,
 			"jump_down": fighter.jump_was_down, "attack_down": fighter.attack_was_down,
 			"skill_down": fighter.skill_was_down, "skill_cooldowns": fighter.skill_cooldown_state(),
 			"down_down": fighter.down_was_down, "attack_requested": fighter.attack_requested,
 			"last_input": fighter.last_input_mask, "last_attacker": fighter.last_attacker_id,
 			"drop": fighter.drop_left})
+	var shots: Array[Dictionary] = []
+	for shot in projectiles:
+		shots.append(shot.snapshot())
 	return {"players": players, "ended": ended, "result": result, "winner": winner_id,
-		"countdown": countdown_left, "frame": frame, "rng": rng.state}
+		"countdown": countdown_left, "frame": frame, "rng": rng.state,
+		"projectiles": shots, "next_projectile": next_projectile_id}
 
 func apply_snapshot(state: Dictionary) -> void:
 	_apply_snapshot(state, false)
@@ -327,14 +505,23 @@ func _apply_snapshot(state: Dictionary, allow_older: bool) -> void:
 			fighter.percent = data.percent
 			fighter.damage_received = data.damage
 			fighter.life_state = data.life
+			# Replicas that only display snapshots keep their collision off (Session).
+			if authoritative:
+				fighter.update_collision()
 			fighter.invulnerability_left = data.invulnerability
 			fighter.respawn_left = data.respawn
 			fighter.hitstun_left = data.hitstun
 			fighter.attack_cooldown = data.cooldown
 			fighter.jumps_left = data.jumps
 			fighter.facing = data.facing
-			fighter.restore_move_state(data.kind, data.skill, data.get("skill_cooldowns", {}))
+			fighter.restore_move_state(data.kind, data.skill, int(data.get("move", -1)), data.get("skill_cooldowns", {}))
+			fighter.move_phase = data.get("phase", Fighter.MovePhase.NONE) if fighter.active_move != null else Fighter.MovePhase.NONE
+			fighter.move_frame = int(data.get("move_frame", 0))
+			fighter.hit_mask = int(data.get("hit_mask", 0))
+			var saved_kit: Dictionary = data.get("kit", {})
+			fighter.kit_state = saved_kit.duplicate(true)
 			fighter.attack_visual = data.visual
+			fighter.attack_flash_left = float(data.get("flash", 0.0))
 			fighter.kills = data.kills
 			fighter.dealt_percent = data.dealt
 			fighter.eliminated_frame = data.out
@@ -351,6 +538,13 @@ func _apply_snapshot(state: Dictionary, allow_older: bool) -> void:
 			fighter.queue_redraw()
 	if emphasis_changed:
 		_set_tag_emphasis(countdown_left > 0.0)
+	projectiles.clear()
+	for value: Variant in state.get("projectiles", []):
+		var shot := Projectile.from_snapshot(value, projectile_types)
+		if shot != null:
+			projectiles.append(shot)
+	next_projectile_id = int(state.get("next_projectile", next_projectile_id))
+	projectile_view.queue_redraw()
 	_update_hud()
 
 func _draw() -> void:

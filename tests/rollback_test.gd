@@ -52,5 +52,10 @@ func run() -> void:
 	check(arena.fighters[0].position.is_equal_approx(corrected_position), "Same state and inputs replay deterministically")
 	check(arena.snapshot().players.size() == corrected_state.players.size(), "Rollback snapshot retains the full roster")
 
+	var before_ring_out := arena.snapshot().duplicate(true)
+	check(arena.fighters[0].ring_out() and arena.fighters[0].collision_mask == 0, "Ring-out turns the fighter's collision off")
+	arena.restore_snapshot(before_ring_out)
+	check(arena.fighters[0].collision_layer == 2 and arena.fighters[0].collision_mask == 3, "Rolling back a ring-out turns collision back on")
+
 	print("Rollback checks complete: %d failures" % failures)
 	quit(1 if failures > 0 else 0)

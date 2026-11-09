@@ -13,6 +13,8 @@ extends Resource
 @export var knockback_growth: float = 1.0
 ## Zero means uncapped.
 @export var percent_cap: float = 0.0
+## [제안] Projectiles allowed in the arena at once; new ones are dropped past this.
+@export var max_projectiles: int = 40
 const INITIAL_STOCKS: int = 3
 const RESPAWN_INVULNERABILITY: float = 3.0
 

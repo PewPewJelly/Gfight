@@ -30,9 +30,9 @@
 | 네트워크 | ENet, 호스트 권한형, 최대 4인, 포트 27840 (테스트 27849), 접속 제한 8초 | 사람 |
 | RPC 채널 | 0 = reliable 이벤트, 1 = 상태 스냅샷, 2 = 입력 | 사람 |
 | 충돌 레이어 | 1 = 월드(땅·플랫폼), 2 = 플레이어 | 사람 |
-| 조정값 | `resources/*.tres` (`MovementSettings`, `CombatRules`, `AttackData`, `SkillData`). 캐릭터별 값은 `resources/characters/<id>.tres` (`CharacterDef`) | 기획 |
-| 폴더 | 기존 씬 `*.tscn` 루트(`main.tscn`, `arena.tscn`), 화면 씬 `scenes/ui/`, 화면 스크립트 `scripts/ui/`, 데이터 클래스 `scripts/data/`, 그 외 스크립트 `scripts/`, 리소스 `resources/`, 그림 파일 `assets/`(SVG, 하위 `icons/`·`start_game/`·`characters/`·`maps/`), 테스트 `tests/` | 사람 |
-| UI 원칙 | 기본 도형과 글자만. 아이콘·캐릭터·맵 그림은 `assets/`의 SVG 파일을 `TextureRect` 또는 `draw_texture_rect()`로 표시한다. 단색 아이콘은 흰색으로 그려져 있으므로 색은 `self_modulate`(또는 draw 색 인자)로 입힌다. 상자·테두리·그림자·줄무늬 같은 UI 도형은 계속 `_draw()`/StyleBox로 그린다. 그림 목록과 출처는 `assets/README.md` | 기획 |
+| 조정값 | `resources/*.tres` (`MovementSettings`, `CombatRules`, `AttackData`, `SkillData`, `ProjectileData`). 캐릭터별 값은 `resources/characters/<id>.tres` (`CharacterDef`) | 기획 |
+| 폴더 | 기존 씬 `*.tscn` 루트(`main.tscn`, `arena.tscn`), 화면 씬 `scenes/ui/`, 화면 스크립트 `scripts/ui/`, 데이터 클래스 `scripts/data/`, 투사체 동작 `scripts/projectiles/`, 캐릭터 고유 스크립트 `scripts/characters/`, 그 외 스크립트 `scripts/`, 리소스 `resources/`, 그림 파일 `assets/`(SVG·PNG, 하위 `icons/`·`start_game/`·`characters/`·`maps/`), 테스트 `tests/` | 사람 |
+| UI 원칙 | 기본 도형과 글자만. 아이콘·맵 그림은 `assets/`의 SVG, 캐릭터 그림은 PNG(대기방 그림은 SVG도 가능) 파일을 `TextureRect` 또는 `draw_texture_rect()`로 표시한다. 단색 아이콘은 흰색으로 그려져 있으므로 색은 `self_modulate`(또는 draw 색 인자)로 입힌다. 상자·테두리·그림자·줄무늬 같은 UI 도형은 계속 `_draw()`/StyleBox로 그린다. 그림 목록과 출처는 `assets/README.md` | 기획 |
 | 입력 장치 | 게임 조작은 키보드. 메뉴 화면은 마우스 전용(키보드·패드 포커스 이동 없음), 단축키는 Enter/Esc만 | 기획 |
 
 ---
@@ -228,6 +228,7 @@ Session (autoload)                       연결, 방, 준비, 경기 시작·종
 - RPC 인자는 기본형, `Vector2`, `Array`, `Dictionary`, Packed 배열만. 객체 전송 금지.
 - 연결 시그널 5개 모두 처리. 호스트가 끊기면 모든 클라이언트는 게임하기 화면 + 토스트 "호스트와의 연결이 끊어졌습니다."
 - 훈련 모드는 네트워크 연결 없이(`OfflineMultiplayerPeer`) 같은 `Session` 흐름을 쓴다. 그래서 훈련 모드 코드도 "내가 호스트"인 경로로 동작해야 한다.
+- Cloudflare/WebRTC 온라인 경로는 롤백이라 각 PC가 경기를 직접 계산한다. 경기 상태를 새로 추가하면 `FightArena.snapshot()`과 복원에 함께 넣는다. 캐릭터 고유 코드의 규칙은 `GDD/characters/kit-rules.md`다.
 
 ---
 

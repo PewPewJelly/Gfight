@@ -89,7 +89,7 @@ func run() -> void:
 	session._advance_to_cloud_tick()
 	online_client._update_debug_text()
 	check(int(online_client._late_input_counts.get(2, 0)) == 1, "Late-input diagnostics reach the overlay")
-	check(online_client._debug_label.text.contains("NET v2 rollback30-packed15"), "Overlay shows the network build identifier")
+	check(online_client._debug_label.text.contains("NET v3 rollback30-packed15"), "Overlay shows the network build identifier")
 	check(online_client._debug_label.text.contains("마지막 롤백 P2 25t"), "Overlay shows the last rollback source")
 	check(online_client._debug_label.text.contains("age 40t / replayed 40t"), "Overlay shows the last repair distance")
 

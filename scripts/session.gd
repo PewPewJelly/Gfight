@@ -1077,7 +1077,33 @@ func _rollback_state_hash(state: Dictionary) -> int:
 				roundi(float(player.get("percent", 0.0)) * 100.0), int(player.get("life", 0)),
 				roundi(float(player.get("hitstun", 0.0)) * 1000.0), roundi(float(player.get("cooldown", 0.0)) * 1000.0),
 				int(player.get("jumps", 0)), roundi(float(player.get("facing", 0.0))), str(player.get("kind", ""))])
+			parts.append("%d:%d:%d:%s" % [int(player.get("phase", 0)), int(player.get("move_frame", 0)),
+				int(player.get("hit_mask", 0)), _hash_text(player.get("kit", {}))])
+	parts.append(_hash_text(state.get("projectiles", [])))
 	return hash("|".join(parts))
+
+## Text for hashing kit and projectile values: floats rounded and dictionary keys sorted, so the
+## same state reads the same on every peer.
+static func _hash_text(value: Variant) -> String:
+	if value is float:
+		return str(roundi(float(value) * 1000.0))
+	if value is Vector2:
+		var point: Vector2 = value
+		return "%s,%s" % [_hash_text(point.x), _hash_text(point.y)]
+	if value is Array:
+		var items := PackedStringArray()
+		for item: Variant in value:
+			items.append(_hash_text(item))
+		return "[%s]" % ";".join(items)
+	if value is Dictionary:
+		var table: Dictionary = value
+		var keys: Array = table.keys()
+		keys.sort()
+		var entries := PackedStringArray()
+		for key: Variant in keys:
+			entries.append("%s=%s" % [key, _hash_text(table[key])])
+		return "{%s}" % ";".join(entries)
+	return str(value)
 
 func _physics_process(_delta: float) -> void:
 	if not cloud_room or phase != Phase.PLAYING or not is_instance_valid(arena):
