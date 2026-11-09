@@ -37,6 +37,7 @@
 
 | 문서 | 상태 | 내용 |
 |---|---|---|
+| [ui-ux-direction.md](design/ui-ux-direction.md) | 현행 | 2026-11-09 UI/UX 결정 9개와 화면별 개선 방향. 이후 UI 작업 기준 |
 | [ui-ux-scenes-v2.pdf](design/ui-ux-scenes-v2.pdf) | 참고 | 경기 HUD(S3)·결과(S4)는 아직 이 문서가 기준 |
 | [match-flow-scene-ux.md](design/match-flow-scene-ux.md) | 참고 | S1·S1-1은 system/01로 대체됨. S3·S4 부분만 유효 |
 
