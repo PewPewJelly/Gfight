@@ -1,0 +1,1 @@
+@AI_GODOT_GUIDE.md
